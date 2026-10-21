@@ -371,6 +371,22 @@ class MemoryTests(unittest.TestCase):
 
 
 class MCPTests(unittest.TestCase):
+    def test_server_stops_at_resource_call_limit(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            task = generate(5, "x", "development")
+            write_json(root / "server_input.json", {"task": task["content"], "contract": tool_contract(),
+                       "max_tool_calls": 1, "bundle": asdict(Bundle())})
+            requests = [
+                {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "load_bundle", "arguments": {}}},
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "list_jobs", "arguments": {}}},
+                {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "submit", "arguments": {"goal_ids": task["content"]["goals"]}}}]
+            process = subprocess.run([sys.executable, "-m", "tracevolve.task_server", "--root", d],
+                input="\n".join(map(canonical, requests)), capture_output=True, text=True, check=True)
+            self.assertEqual(len(process.stdout.splitlines()), 2)
+            self.assertEqual(read_json(root / "environment_result.json")["tool_calls"], 1)
+            self.assertFalse(read_json(root / "environment_result.json")["success"])
+
     def test_real_stdio_server_load_gate_and_receipts(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)

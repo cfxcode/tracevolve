@@ -86,6 +86,10 @@ def serve(root):
             print(json.dumps({"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": "Method not found"}}), flush=True)
             continue
         print(json.dumps({"jsonrpc": "2.0", "id": request_id, "result": result}), flush=True)
+        if env.calls >= env.max_calls:
+            # End the task capability after delivering the final allowed reply.
+            # Further model attempts cannot keep executing or mutate this run.
+            return
 
 
 def main():
