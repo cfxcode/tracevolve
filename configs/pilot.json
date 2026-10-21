@@ -1,0 +1,15 @@
+{
+  "study_id": "p0-pilot-001",
+  "phase": "p0",
+  "model": "gpt-6-astra",
+  "reasoning_effort": "high",
+  "expected_codex_version": "codex-cli 0.163.0",
+  "target_modifications": 5,
+  "heldout_tasks_per_modification": 5,
+  "max_development_tasks": 30,
+  "max_sessions": 160,
+  "timeout_seconds": 300,
+  "max_tool_calls": 64,
+  "seed": 204201,
+  "prior_studies": [".tracevolve/p0-smoke-001"]
+}

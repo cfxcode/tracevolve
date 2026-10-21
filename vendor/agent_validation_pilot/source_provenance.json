@@ -1,0 +1,20 @@
+{
+  "note": "Source provenance only. This prototype does not reproduce Harness2 or run its model experiments.",
+  "sources": [
+    {
+      "repository": "google-research/harness2",
+      "path": "harness2/core/selection.py",
+      "blob_sha": "2cf04f50e35fd82d7abaea279a83b4a7eb4c2193",
+      "url": "https://github.com/google-research/harness2/blob/main/harness2/core/selection.py",
+      "read_scope": "lines 90-116"
+    },
+    {
+      "repository": "google-research/harness2",
+      "path": "harness2/core/library.py",
+      "blob_sha": "39e50684b4044e483a3c16a447958044d4b5e6de",
+      "url": "https://github.com/google-research/harness2/blob/main/harness2/core/library.py",
+      "read_scope": "lines 106-126"
+    }
+  ]
+}
+

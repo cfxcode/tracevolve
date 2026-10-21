@@ -1,0 +1,44 @@
+{
+  "package_version": "0.2.1-pilot",
+  "input_schema_version": 2,
+  "real_experiment": "NOT_RUN",
+  "real_candidates": 0,
+  "real_model_trajectories": 0,
+  "real_adoption_decisions": 0,
+  "real_model_cost_usd": null,
+  "C_beats_B": "NOT_EVALUATED",
+  "study_scope": "Identifier-renaming evidence versus repeated-original-task evidence; no comparison against new-task validation.",
+  "required_for_real_collection": [
+    "A fixed configured execution adapter/model and runtime configuration",
+    "Natural frozen modifications with complete v2 artifacts and paired traces",
+    "Predeclared independent future tasks and sample/cost plan",
+    "Metered execution, failure, calibration, and judgment costs"
+  ],
+  "delivered_scope": "Offline evidence replay with strict supplied-content contracts, paired adoption summaries, type-sensitive rename verification, sample planning, and synthetic regression fixtures. No real-model collector or empirical agent results.",
+  "tooling_checks": {
+    "tests_passed": 119,
+    "test_modules": {
+      "contracts": 30,
+      "paired_metrics": 10,
+      "pilot_integrity": 27,
+      "rename_probe": 24,
+      "sample_plan": 13,
+      "event_costs": 15
+    },
+    "synthetic_units": 5,
+    "synthetic_decision_records": 15,
+    "demo_judge": "constant reject",
+    "identifier_structure_check": true,
+    "demo_status": "SYNTHETIC_PLUMBING_ONLY",
+    "unknown_cost_case_preserved": true,
+    "failed_probe_charged_and_marked_incomplete": true,
+    "heldout_excluded_from_requests": true,
+    "selective_failure_counterexample_reproduced_and_fixed": true,
+    "boolean_numeric_counterexample_reproduced_and_fixed": true,
+    "conditional_sample_size_default": 4612,
+    "contradictory_event_costs_rejected_before_judge": true,
+    "unknown_costs_not_reconstructed": true
+  },
+  "recorded_at": "2026-10-21T15:42:47.134419+08:00",
+  "input_contract_revision": "2.1"
+}

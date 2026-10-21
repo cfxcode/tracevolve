@@ -1,0 +1,32 @@
+{
+  "source": "agent_collection_codex_bundle_v0.2.1.zip / agent_validation_pilot",
+  "files": {
+    "CHANGELOG.txt": "d8b7cf9291c86c780a892681ceff13f03be86069b32fc1de78809f6475f08229",
+    "INPUT_CONTRACT.txt": "7cde52fdda71367111fe19db62ad85d0b8d6dd059c1d0712f5cfcb4ba33bb910",
+    "MANIFEST.json": "dbda242f2b59246e6ae21da61d3d6dfa74b305b54d484009e3ba7d6dc724e91b",
+    "README.txt": "c016285eef06e5c27afaa3d503c5673559dcc8e5046e9ed7c9618599f40ddfc3",
+    "RUN_REPORT.txt": "fb80efdc5bd7e5f81ac0293d6c3db47d1290f79a781e46c37a5cb93b454503d9",
+    "STATUS.json": "033a5ec1af9abd7ccfb1e11c5c323cc2b84666a4c1524197f74d0bde0cf6773b",
+    "contracts.py": "f1fe9465eca15a08c9c3b59a54b5467fb19c043cf5903b26f71e5780f7a0e94d",
+    "make_demo.py": "dd16ee42381b5cd75b30a66ca6474e9c8eee7494a907627f58721d9504d1c9d8",
+    "pilot.py": "dac20a1ff8ab5a3a8159a4e8bad4c3c178acb62b9d7cb6701e97cffde126f5fd",
+    "protocol.json": "3538ad605598284b8535a3e411b3558b920db1e6844c10174bb78428481741f9",
+    "rename_probe.py": "b857e327bd4c97ddcb5b467dc054622cd2a76dc96571ca2d5dada375b1a72426",
+    "sample_plan.py": "222ee3fa1fb5152420650f1491179cab6e8a336e09b52bc9b416c07aebc5c184",
+    "source_provenance.json": "eb17a96372293416a3ea832bd0bc738076b8306bdf25c0f099d712a0f16c6012",
+    "synthetic_fixture.py": "950cae593d5511b437dee93ab221adfa845dcfeecb542cf10b028284847fb37b",
+    "test_contracts.py": "e89324709bec4361a00a2313ad408e898867438dd81380317873e6981acdaed2",
+    "test_event_costs.py": "f16417097fc521261797047b9dc3fc15f8c9389db6a471fbaaaae3279071d4f1",
+    "test_paired_metrics.py": "a6d28ef8c354b5cdaa77183a12f512141e80eddc5aebb0716c8a597947f9042c",
+    "test_pilot_integrity.py": "95d262f30c040af4e95c87c9f97a06f4c1555c6cd59f9585c7be0793b8b4c4b4",
+    "test_rename_probe.py": "d108f801523e31d783867358bcdbd86b29e41f247843f42f2c569685844d6ff0",
+    "test_sample_plan.py": "3d696084f4288408fa3eaa33fed6b1810187719473dcf6fa316de64b8e18e8bb"
+  },
+  "runtime_copies": [
+    "contracts.py",
+    "pilot.py",
+    "rename_probe.py",
+    "protocol.json",
+    "INPUT_CONTRACT.txt"
+  ]
+}

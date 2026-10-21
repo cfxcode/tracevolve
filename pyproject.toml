@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tracevolve"
+version = "0.1.0"
+description = "基于执行证据的 Agent 自优化框架"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+tracevolve = "tracevolve.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["tracevolve*"]
+
+[tool.setuptools.package-data]
+tracevolve = ["_vendor/*.py", "_vendor/*.json", "_vendor/*.txt"]

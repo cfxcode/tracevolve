@@ -1,0 +1,167 @@
+v0.2.1 输入契约：schema_version=2，contract_revision=2.1
+================================
+
+本文件描述回放器真正检查的输入条件。完整可运行示例位于
+data/demo_records.json；其中代码、任务、执行结果、费用与来源均为人工合成，
+不可改标签后作为真实实验数据。validate_contract 不修改输入，不补造证据。
+Python 标准库即可运行；具体可执行契约位于 contracts.py。
+
+1. 顶层与冻结单位
+----------------
+顶层必有 schema_version:2、additional_budget_usd（数值或 null）、units 非空数组。
+decision 默认 delta=.05、indifference=.01、alpha=.05、min_heldout_pairs=3、
+utility_bounds=[0,1]；本次没有修改这些设置。
+shared_overheads 的 candidate_generation_usd、calibration_usd 缺失时按未知处理。
+
+每个 unit 必有 unit_id、baseline_id、patch_id、patch_description，及下列字段：
+
+    frozen.baseline = {content: UTF-8文本, sha256: 内容哈希}
+    frozen.candidate = {content: UTF-8文本, sha256: 内容哈希}
+    frozen.patch = {
+        format: "replace_text",
+        base_sha256: baseline内容哈希,
+        content: candidate完整文本,
+        sha256: patch.content的哈希
+    }
+
+首版明确只支持完整文本替换，不支持未经解析的任意 diff。
+patch.content 必须逐字符等于 candidate.content，因此二者内容哈希相同。
+patch.base_sha256 同时绑定旧版。相同 baseline_id 不能指向不同正文；相同
+patch_id 不能指向不同正文、补丁格式或基线。输入方应将实际使用的完整
+harness、提示与相关固定配置序列化进文本，不能只提交一句修改描述。
+
+这不是远程执行认证。采集端还必须保留实际加载的 artifact、模型版本、调用
+参数和原始日志，供独立核对。回放器无法从哈希判断执行器有没有说实话。
+
+2. 任务 envelope 与哈希
+---------------------
+每个 unit 的 source_task，以及执行事件/保留集的 task，结构如下：
+
+    {
+        content: {id: "任务ID", jobs: [...], goals: [...]},
+        sha256: "规范化JSON内容的SHA-256",
+        source_id: "原始任务实例或根来源身份",
+        identifier_contract: "opaque"
+    }
+
+任务正文须满足 rename_probe 的结构化 DAG 契约：唯一作业 ID、有效依赖与目标、
+无重复边和环、有限 JSON 值。source_id 是任务实例的根身份，不是整个数据集名。
+声明 opaque 是采集端对“不透明资源 ID”的承诺，程序无法自动证明其语义。
+
+harness/patch 哈希：对原始文本直接 UTF-8 编码后计算 SHA-256，不擅自改换行。
+task 哈希：json.dumps(content, sort_keys=True, ensure_ascii=False,
+separators=(',', ':'), allow_nan=False) 的 UTF-8 SHA-256。
+contracts.sha256_text / sha256_json 提供相同实现。JSON 的 1 与 1.0、false 与 0
+在该契约中不同；不要借由重新序列化改变类型。
+
+3. 每条事件绑定同一修改
+---------------------
+initial_evidence、extra_B、extra_C 均为非空事件数组。
+每个事件必有 event_id、type、status、valid:boolean、synthetic:boolean、
+observation:object、cost_usd:number|null，以及 binding：
+
+    {
+        baseline_sha256: frozen.baseline.sha256,
+        candidate_sha256: frozen.candidate.sha256,
+        patch_sha256: frozen.patch.sha256,
+        source_task_sha256: source_task.sha256
+    }
+
+event_id 在同一 unit 内唯一。cost_usd 是该事件已发生的总费用；对成对执行，
+包含两侧，不能只报 candidate。未知费用保持 null，不用 0 代替。
+所有列出的事件都会计费，包括失败事件；回放器不会按结果或实际成本挑选事件。
+它审计已记录成本，不是实时账单限额器。
+
+成对执行事件可另填 cost_scope；两种合法口径为：
+- execution_only：仅包含两侧执行费用。两侧分项均已知时，总额须在浮点容差
+  内等于两侧之和，明显多报和少报都拒绝。
+- execution_plus_overhead：包含两侧执行和本事件额外开销。已知总额不得低于
+  所有已知执行分项之和。未填 cost_scope 时明确沿用此口径，兼容原 v0.2。
+
+两种口径均使用 rel_tol=1e-12、abs_tol=1e-12 USD。只知道一侧费用时，已知
+总额仍不得低于这一侧；例如 100+null 对 .001 一样拒绝。failed/not_run
+记录中已经提供的费用也纳入检查，不因状态失败而忽略。
+
+未知费用原样保留：总额 null 不会从已知分项重建；未知分项不填零。
+如果账单直接提供完整事件总额、但分摊未知，可以保留已知总额用于预算；
+audit 明确报告 known_lower_bound_only 或 unknown_execution_breakdown。
+known_execution_subtotal_usd 是已知项的下界；complete_execution_sum_usd 在
+任一分项未知时为 null，不能把前者误认为完整执行费用。
+若总额未知，relationship_check 为 unknown_total；追加验证事件总额未知时，
+对应追加预算的合规状态也保持未知。
+本事件额外开销已含在总额中时，不应再记录到另一条费用事件而重复计费。
+
+4. 执行证据必须成对
+-----------------
+执行事件 type 仅可为 paired_validation，必须含 task、intervention，以及：
+
+    observation.baseline / observation.candidate = {
+        run_id: "本次执行的唯一标识",
+        status: "completed" | "failed" | "not_run",
+        harness_sha256: 对应版本的内容哈希,
+        task_sha256: 该事件task的内容哈希,
+        utility: 有限数值（或 success: boolean）
+    }
+
+两侧 run_id 不同，同 unit 所有证据和保留集不能复用 run_id。任务哈希必须相同。
+completed 表示执行产生了可评价结果；正常执行但任务失败，应写 completed
+与 success:false / 对应 utility，仍是有效观察。
+failed / not_run 表示执行本身无可用结果：必须有 error，不能带 utility/success。
+一侧失败时仍须保留两侧记录；未执行的一侧明确写 not_run，不得直接省略。
+event.status/valid 必须与两侧状态一致：双侧 completed 才是 completed/true。
+可另记每侧 execution_cost_usd，但事件费用不会被再次加上两侧费用而重复计账。
+
+初始证据和 B 的 intervention.kind 必须是 none，task 哈希及 source_id 必须
+与原任务相同。B 使用新任务会被拒绝。
+C 的 intervention.kind 必须是 identifier_renaming，并有完整 mapping。
+映射须为非恒等的双射，逆映射后正文与原任务严格同型、同值；仅管理用 task id
+可不同。两侧均执行这一变体，不接受“原题 baseline + 变体 candidate”。
+
+5. 费用、生成失败与诊断完成率
+-------------------------
+仅 extra_C 可使用 probe_generation、probe_validation、probe_interpretation。
+这些事件必须有 status=completed/failed；failed 时 observation.error 必填。
+不得包含 baseline/candidate、utility/success 等执行结果，不能充作成对证据。
+
+正常情况下 C 必须有 paired_validation。若探针在生成或有效性校验阶段就失败，
+允许只记录明确失败的生成/校验事件，不凭空构造 baseline/candidate 结果。
+该 unit 的 diagnostic_complete=false，频道状态为 incomplete_or_failed，费用照计。
+仅解释失败不能替代本来需要的执行 pair。解释失败也单独计数并标记频道不完整。
+初始/B 执行失败同样明确记录，不和“判断器失败”或“参考标签 unresolved”混为一谈。
+
+6. 保留集与判断请求
+-----------------
+heldout 可为空；每一项包含 task_id、task、binding、synthetic、baseline、candidate。
+两侧 run 结构同上，另必有 execution_cost_usd（未知为 null）；参考评价只接受
+completed 的成对结果。task_id 必须等于 task.content.id。
+
+程序检查 heldout 的任务 ID、哈希、source_id 不与任何已展示证据的任务重叠；
+同 unit 内 source_id 不得重复。跨 unit 共用保留任务可以，但统计推断需另行
+处理共享任务或候选的依赖关系。不同 ID/哈希/source_id 不是独立性的证明。
+采集端应记录预先计划的全部保留任务及失败，不能悄悄删除失败任务后提交成功子集。
+执行器故障应补齐可靠的成对评价或让该次研究报告为不完整，不能编造 utility。
+
+判断请求只有协议、固定修改内容、原任务、阈值与本组事件白名单。
+binding/task/intervention/frozen 的额外 metadata 不会整对象转发。
+heldout、reference_label、reference_effect_class 等明确评价字段禁止进入公开证据。
+原始 observation 的自由文本和真实 task/harness 文本仍需检查语义泄漏；外部
+判断器进程不是安全沙箱，不得获得读取保留集文件的额外权限。
+
+7. 输入失败与迁移
+----------------
+输入校验在任何判断器调用、输出目录创建之前完成。缺 pair、缺 mapping、
+缺来源、哈希不符、修改漂移或任意未声明事件类型均报错并停止，不自动修补。
+真实 v1 日志必须从可靠原始 artifact/日志补齐这些记录，无法补齐时应重新采集。
+synthetic_fixture.upgrade_synthetic_fixture 只接受 synthetic=True 的测试材料，
+其任务、代码、来源和缺失观察均是虚构补充；生产回放器不会调用它。
+
+8. 如何读输出
+-------------
+input_contract_audit 是内容与声明的一致性检查结果，不是研究有效性认证。
+event_cost_policy 记录费用口径与容差；每个 unit 的 event_cost_checks 明确
+标明各事件检查了完整分项、已知下界，还是因未知值无法核对。
+groups 分别列判断完成率、参考可判定率及各条件均值的实际分母和 unit ID。
+paired_BC_comparison 只在两组共享的完成集合上作描述性比较，另给出排除原因
+和全部参考可判定 unit 的缺失损失代数界。任一 B/C 判断失败时为
+INCOMPLETE_PAIRING；即便共同子集表现良好，也不宣布总体优势。
+预算、标签不确定性、诊断失败与判断失败分别报告，避免混成同一个成功率。

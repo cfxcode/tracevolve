@@ -1,0 +1,124 @@
+{
+  "protocol_version": "0.2.1-pilot",
+  "status": "FROZEN_FOR_TOOLING_CHECK_ONLY",
+  "real_model_experiment_status": "NOT_RUN",
+  "blocking_condition": "Real-model collection is not part of this repair run. A fixed execution adapter/model, natural candidates, independent future tasks, and metered costs must be configured before empirical claims.",
+  "decision_object": "One frozen modification relative to one fixed baseline.",
+  "actions": [
+    "accept",
+    "reject"
+  ],
+  "application_rule": "Apply an accepted modification unchanged on each held-out task; apply baseline after rejection. No retrieval, library insertion, combination, or best-of-N selection.",
+  "primary_scope": "Binary adoption under fixed false-accept/false-reject costs of 1/1; no claim of dollar-denominated net benefit.",
+  "utility_definition": "Task success under the same predeclared execution limits, bounded in [0,1].",
+  "minimum_effect_delta": 0.05,
+  "indifference_margin": 0.01,
+  "reference_uncertainty": "Use independent paired held-out tasks. Effects not separated from the threshold by the declared uncertainty rule stay unresolved. The provided Hoeffding bound presumes independent bounded task differences; it is not valid merely because task IDs differ.",
+  "groups": {
+    "A": "Initial complete baseline/candidate validation evidence only.",
+    "B": "The same initial evidence plus additional complete validation of the unchanged task.",
+    "C": "The same initial evidence plus identifier-renaming diagnostic evidence."
+  },
+  "diagnostic": {
+    "name": "bijective_opaque_identifier_renaming",
+    "domain": "A structured DAG tool task whose identifiers are explicitly opaque.",
+    "fields": [
+      "jobs[].id",
+      "jobs[].requires[]",
+      "goals[]"
+    ],
+    "validity": "Nonidentity total bijection; inverse mapping strictly recovers parsed JSON types and values except administrative task id. Boolean, integer, and float types are distinct; dictionary key order is immaterial and array order is preserved.",
+    "restriction": "This is a controlled task transformation, not a generic proof that arbitrary filenames, code identifiers, or human-readable names are irrelevant. It changes the evidence protocol relative to current-task-only Harness2.",
+    "candidate_set": "Frozen. The probe does not generate an adoptable replacement patch."
+  },
+  "budget": {
+    "unit": "USD when actually metered; otherwise unknown.",
+    "same_additional_cap_for_B_and_C": true,
+    "include": [
+      "validation executions",
+      "probe generation",
+      "probe validity checks",
+      "probe interpretation",
+      "failed experiments",
+      "adoption judge"
+    ],
+    "shared_costs": [
+      "candidate generation",
+      "initial evidence generation"
+    ],
+    "evaluation_only_cost": "Held-out runs are accounted separately and never exposed as selection evidence.",
+    "unknown_cost_policy": "Null remains unknown; never substitute zero or certify equal dollar expenditure.",
+    "overrun_policy": "Do not cherry-pick precomputed outcomes using their realized costs. Flag budget violations and incomplete allocation evidence.",
+    "paired_event_cost_scope": {
+      "field": "cost_scope",
+      "default": "execution_plus_overhead",
+      "execution_only": "When both execution components are known, total must equal their sum within tolerance. Otherwise it must cover all known components.",
+      "execution_plus_overhead": "Total includes both executions and extra costs of this event; every known execution component must be covered.",
+      "relative_tolerance": 1e-12,
+      "absolute_tolerance_usd": 1e-12,
+      "partial_information": "Null totals are never reconstructed and null/missing components are never zero-filled. A directly reported complete total may have an unknown allocation; audit marks partial or unchecked relationships.",
+      "single_charge": "Count event total once; neither re-add component amounts nor duplicate already included overhead in separate events.",
+      "rejection": "Contradictory amounts fail input validation before all judge calls and output creation."
+    }
+  },
+  "judge": {
+    "same_command_and_protocol_for_all_groups": true,
+    "heldout_in_request": false,
+    "group_label_in_request": false,
+    "training_policy": "None in the demo. A real trained judge must use identical training procedures and task-family-disjoint development data in all groups; account for its calibration cost.",
+    "limits": "A child-process request whitelist is evidence hygiene, not an OS security boundary. A real model runner must not receive filesystem access to held-out outcomes."
+  },
+  "splits": "Separate development/calibration/test by task family or repository, never by repeated trajectory from the same task.",
+  "candidate_collection": "Use all eligible modifications from a fixed generator. Do not retain only the hypothesized failure types. Record generation failures and eligibility exclusions.",
+  "primary_comparison": "C versus repeated validation on the same original task (B), at the same additional budget cap, with realized spend and missingness reported. This does not compare against equally costly new-task validation.",
+  "stop_rule_for_research": "If C does not improve adoption outcomes over B on naturally generated held-out modifications after accounting for costs and uncertainty, do not build a more elaborate scheduler yet.",
+  "nonclaims": [
+    "Synthetic examples do not establish the prevalence of real candidate failure modes.",
+    "A plumbing test does not establish C > B.",
+    "The fixed-cost binary decision objective is not a complete risk-sensitive or monetary utility objective.",
+    "No real candidates, model trajectories, dollar costs, or empirical agent improvements have been collected in this environment.",
+    "C beating B would support ID-renaming evidence versus repeated-original-task evidence, not superiority to new-task validation.",
+    "Hash-verified supplied artifacts do not attest actual execution or statistical independence.",
+    "A complete-case paired comparison can still select easier units; missing judgments are not correct decisions."
+  ],
+  "input_schema_version": 2,
+  "input_contract": {
+    "schema_version": 2,
+    "details": "INPUT_CONTRACT.txt",
+    "frozen_artifacts": "Verify embedded baseline, candidate, and replace_text patch UTF-8 contents and SHA-256; bind patch to its baseline and every event/run to the same frozen artifacts.",
+    "task_provenance": "Verify original and renamed task content hashes, root source_id, explicit mapping, and same-variant baseline/candidate runs.",
+    "execution_records": "Paired execution is mandatory. Explicit failed/not_run sides have an error and no fabricated utility. Cost-only records cannot impersonate paired runs.",
+    "failed_probe": "Explicit generation/validity failure may occur before any pair; retain its cost and mark diagnostic_complete false. Do not silently drop the unit.",
+    "heldout": "Check explicit overlap of task IDs, content hashes and root source_ids with visible evidence; disallow repeated root source_id within one unit.",
+    "legacy": "Real v1 input is rejected; no automatic fabrication or version-only relabeling.",
+    "limits": "Internal consistency, not proof of actual execution, opaque-ID semantics, complete collection, or statistical independence."
+  },
+  "aggregation": {
+    "coverage": [
+      "judgment completion over all units",
+      "reference resolvability over all units",
+      "completed-and-resolvable intersection"
+    ],
+    "conditional_group_means": "Explicit names and denominators; never compare conditional group means from different unit sets.",
+    "paired_loss": "Only the same units with completed B/C decisions and resolved references.",
+    "paired_descriptive_gain": "Only the same units with completed B/C decisions and observed heldout gains; unresolved labels need not exclude descriptive gains.",
+    "missingness": "List exclusions and reasons; any incomplete B/C judgment pairing is INCOMPLETE_PAIRING and supports no overall superiority conclusion.",
+    "loss_bounds": "Across every resolved-reference unit, fix observed losses and range each missing loss over [0,1]. Report algebraic bounds, not confidence intervals.",
+    "superiority": "No inferential superiority test is implemented; even all-complete comparisons remain descriptive."
+  },
+  "sample_planning": {
+    "tool": "sample_plan.py",
+    "observed_mean_gain_example": 0.1,
+    "minimum_independent_pairs_at_that_observed_mean": 4612,
+    "note": "A conditional threshold-crossing calculation under the unchanged default Hoeffding rule, not prospective statistical power or guaranteed detection.",
+    "pilot_outputs": [
+      "coverage",
+      "probe completion and failures",
+      "per-modification observed paired gains",
+      "unresolved fraction",
+      "all recorded costs"
+    ],
+    "precommitment": "Freeze thresholds, sample size, and sampling before evaluation; do not relax thresholds or apply a fixed-sample interval after uncontrolled optional stopping."
+  },
+  "input_contract_revision": "2.1"
+}

@@ -1,0 +1,148 @@
+{
+  "package_version": "0.2.1-pilot",
+  "input_schema_version": 2,
+  "input_contract_revision": "2.1",
+  "purpose": "Reproducible tooling fixes and synthetic integrity checks, not empirical agent results",
+  "files": [
+    {
+      "path": "CHANGELOG.txt",
+      "bytes": 3182,
+      "sha256": "d8b7cf9291c86c780a892681ceff13f03be86069b32fc1de78809f6475f08229"
+    },
+    {
+      "path": "INPUT_CONTRACT.txt",
+      "bytes": 10184,
+      "sha256": "7cde52fdda71367111fe19db62ad85d0b8d6dd059c1d0712f5cfcb4ba33bb910"
+    },
+    {
+      "path": "README.txt",
+      "bytes": 10583,
+      "sha256": "c016285eef06e5c27afaa3d503c5673559dcc8e5046e9ed7c9618599f40ddfc3"
+    },
+    {
+      "path": "RUN_REPORT.txt",
+      "bytes": 5819,
+      "sha256": "fb80efdc5bd7e5f81ac0293d6c3db47d1290f79a781e46c37a5cb93b454503d9"
+    },
+    {
+      "path": "STATUS.json",
+      "bytes": 1902,
+      "sha256": "033a5ec1af9abd7ccfb1e11c5c323cc2b84666a4c1524197f74d0bde0cf6773b"
+    },
+    {
+      "path": "contracts.py",
+      "bytes": 20471,
+      "sha256": "f1fe9465eca15a08c9c3b59a54b5467fb19c043cf5903b26f71e5780f7a0e94d"
+    },
+    {
+      "path": "data/demo_records.json",
+      "bytes": 709801,
+      "sha256": "ba1a4c554c7f1c03833d59c377988c9069780e6b7878cba5736329d4c35ad080"
+    },
+    {
+      "path": "data/identifier_renaming_demo.json",
+      "bytes": 692,
+      "sha256": "43fbf81eeba123c5b4643afdf777e2324ca08cea8be9154ff401bb6b8977fb35"
+    },
+    {
+      "path": "make_demo.py",
+      "bytes": 3369,
+      "sha256": "dd16ee42381b5cd75b30a66ca6474e9c8eee7494a907627f58721d9504d1c9d8"
+    },
+    {
+      "path": "pilot.py",
+      "bytes": 38861,
+      "sha256": "dac20a1ff8ab5a3a8159a4e8bad4c3c178acb62b9d7cb6701e97cffde126f5fd"
+    },
+    {
+      "path": "protocol.json",
+      "bytes": 9132,
+      "sha256": "3538ad605598284b8535a3e411b3558b920db1e6844c10174bb78428481741f9"
+    },
+    {
+      "path": "rename_probe.py",
+      "bytes": 9658,
+      "sha256": "b857e327bd4c97ddcb5b467dc054622cd2a76dc96571ca2d5dada375b1a72426"
+    },
+    {
+      "path": "runs/cost_regression.json",
+      "bytes": 1106,
+      "sha256": "42d5b558d99fd36a8d4661664e6bd00c50a23f9b692752b558b24f360bc6405f"
+    },
+    {
+      "path": "runs/demo/summary.json",
+      "bytes": 38450,
+      "sha256": "83b5bf046e87955d6fd9d96063e439a73d20cbd8daa755a535609dd3b3bfdff4"
+    },
+    {
+      "path": "runs/demo/traces.jsonl",
+      "bytes": 84462,
+      "sha256": "ee234c5c82005e34c210fd7ef7dbfd494a529df47e62ff4f705b0c915f07e56d"
+    },
+    {
+      "path": "runs/integrity_tests.txt",
+      "bytes": 17441,
+      "sha256": "a443638a02efae206f8df678fe50d604babb23d1d66ef512d1667a6bf84938de"
+    },
+    {
+      "path": "runs/renaming_probe.json",
+      "bytes": 1239,
+      "sha256": "fec08824d6edf3942ada4951f99b89b8dc00f7c5bcefcd279c96c2521d36f6d1"
+    },
+    {
+      "path": "runs/review_regressions.json",
+      "bytes": 8662,
+      "sha256": "8890ad4e7eff842623e36b80879544ed082630e58d50a7f837c434ca545202ef"
+    },
+    {
+      "path": "runs/sample_plan.json",
+      "bytes": 2185,
+      "sha256": "d66152389dc60831c347a5cfb049bdf7a53f6a924cffba5a64b7f666f1b11ed4"
+    },
+    {
+      "path": "sample_plan.py",
+      "bytes": 8879,
+      "sha256": "222ee3fa1fb5152420650f1491179cab6e8a336e09b52bc9b416c07aebc5c184"
+    },
+    {
+      "path": "source_provenance.json",
+      "bytes": 728,
+      "sha256": "eb17a96372293416a3ea832bd0bc738076b8306bdf25c0f099d712a0f16c6012"
+    },
+    {
+      "path": "synthetic_fixture.py",
+      "bytes": 6330,
+      "sha256": "950cae593d5511b437dee93ab221adfa845dcfeecb542cf10b028284847fb37b"
+    },
+    {
+      "path": "test_contracts.py",
+      "bytes": 10077,
+      "sha256": "e89324709bec4361a00a2313ad408e898867438dd81380317873e6981acdaed2"
+    },
+    {
+      "path": "test_event_costs.py",
+      "bytes": 9784,
+      "sha256": "f16417097fc521261797047b9dc3fc15f8c9389db6a471fbaaaae3279071d4f1"
+    },
+    {
+      "path": "test_paired_metrics.py",
+      "bytes": 11565,
+      "sha256": "a6d28ef8c354b5cdaa77183a12f512141e80eddc5aebb0716c8a597947f9042c"
+    },
+    {
+      "path": "test_pilot_integrity.py",
+      "bytes": 20255,
+      "sha256": "95d262f30c040af4e95c87c9f97a06f4c1555c6cd59f9585c7be0793b8b4c4b4"
+    },
+    {
+      "path": "test_rename_probe.py",
+      "bytes": 9717,
+      "sha256": "d108f801523e31d783867358bcdbd86b29e41f247843f42f2c569685844d6ff0"
+    },
+    {
+      "path": "test_sample_plan.py",
+      "bytes": 5870,
+      "sha256": "3d696084f4288408fa3eaa33fed6b1810187719473dcf6fa316de64b8e18e8bb"
+    }
+  ]
+}
