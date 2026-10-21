@@ -1,5 +1,5 @@
 {
-  "study_id": "p1a-smoke-001",
+  "study_id": "p1a-smoke-002",
   "phase": "p1a",
   "model": "gpt-6-astra",
   "reasoning_effort": "high",
@@ -10,6 +10,6 @@
   "max_sessions": 36,
   "timeout_seconds": 300,
   "max_tool_calls": 64,
-  "seed": 304201,
+  "seed": 304301,
   "prior_studies": [".tracevolve/p0-smoke-001"]
 }

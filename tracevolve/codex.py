@@ -136,9 +136,16 @@ class CodexAdapter:
                 env["CODEX_HOME"] = str(auth_home)
                 env["PYTHONPATH"] = str(Path(__file__).parent.parent)
                 options, effective = self._options(config, run_dir if server_input else None)
+                audit_options = []
+                for i in range(4, len(options), 2):
+                    if not options[i + 1].startswith("mcp_servers."):
+                        audit_options.extend(options[i:i + 2])
                 # Render the actual startup context offline. An isolated auth
                 # home alone does not prove host .agents Skills were excluded.
-                audit = subprocess.run([self.executable, "debug", "prompt-input", *options[4:]],
+                # prompt-input initializes configured MCP servers, so keep the
+                # task server out of this instruction audit. It must start once,
+                # only when exec begins; it contributes no startup instructions.
+                audit = subprocess.run([self.executable, "debug", "prompt-input", *audit_options],
                                        env=env, cwd=workspace, capture_output=True, text=True, timeout=30)
                 if audit.returncode:
                     raise ValueError("startup context audit failed: " + audit.stderr[:300])
@@ -160,8 +167,9 @@ class CodexAdapter:
                     disabled = sorted({str(p) for p in foreign})
                     inline = "[" + ",".join("{path=" + json.dumps(p) + ",enabled=false}" for p in disabled) + "]"
                     options.extend(["-c", "skills.config=" + inline])
+                    audit_options.extend(["-c", "skills.config=" + inline])
                     effective["skills.config"] = [{"path": p, "enabled": False} for p in disabled]
-                    audit = subprocess.run([self.executable, "debug", "prompt-input", *options[4:]],
+                    audit = subprocess.run([self.executable, "debug", "prompt-input", *audit_options],
                                            env=env, cwd=workspace, capture_output=True, text=True, timeout=30)
                     if audit.returncode:
                         raise ValueError("context exclusion audit failed: " + audit.stderr[:300])
@@ -171,7 +179,8 @@ class CodexAdapter:
                 write_json(run_dir / "effective_config.json", effective)
                 normalized = context_text.replace(str(temp), "<ISOLATED_RUN>")
                 write_json(run_dir / "startup_context.json", {"text": normalized, "sha256": text_hash(normalized),
-                           "host_skill_entries": 0, "project_instructions_max_bytes": 0})
+                           "host_skill_entries": 0, "project_instructions_max_bytes": 0,
+                           "task_mcp_omitted_from_instruction_audit": True})
                 command = [self.executable, "exec", "--json", "--ephemeral", "--ignore-user-config", "--ignore-rules",
                            "--skip-git-repo-check", "--color", "never", "-C", str(workspace), *options]
                 if schema:

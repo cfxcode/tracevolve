@@ -45,6 +45,7 @@ class Config:
     def public(self):
         d = asdict(self)
         d.pop("auth_home")
+        d["prior_studies"] = [str(Path(p).expanduser().resolve()) for p in self.prior_studies]
         return d
 
     def plan(self):

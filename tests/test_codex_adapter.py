@@ -40,6 +40,8 @@ import json, sys, os, time
 if '--version' in sys.argv:
     print('codex-cli 0.163.0'); sys.exit()
 if 'debug' in sys.argv:
+    if any('mcp_servers.' in arg for arg in sys.argv):
+        sys.stderr.write('instruction audit must not start the task MCP'); sys.exit(1)
     print({context!r}); sys.exit()
 prompt = sys.stdin.read()
 """) + textwrap.dedent(body))
