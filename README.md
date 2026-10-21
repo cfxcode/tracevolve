@@ -45,8 +45,8 @@ python3 -m tracevolve run --config configs/pilot.json --study .tracevolve/p0-pil
 ## P1a：Skill、许可与契约变化
 
 ```bash
-python3 -m tracevolve run --config configs/p1a.json --study .tracevolve/p1a-smoke-001
-python3 -m tracevolve report --study .tracevolve/p1a-smoke-001
+python3 -m tracevolve run --config configs/p1a.json --study .tracevolve/p1a-smoke-002
+python3 -m tracevolve report --study .tracevolve/p1a-smoke-002
 ```
 
 Skill 通过适配器管理的 `load_bundle` 工具明确注入 Codex 上下文。这里实现的是受控 Skill 加载，不使用 Codex 的全局原生 Skill 自动发现。运行必须同时具备宿主读取记录和 Codex MCP 成功回包，且两者内容哈希一致，才能作为候选加载证据。这证明内容已交付，不证明模型理解、采用或获得收益。
@@ -56,15 +56,15 @@ Skill 通过适配器管理的 `load_bundle` 工具明确注入 Codex 上下文�
 维护者查看发布证据后，可显式发布，再继续后续任务与复验：
 
 ```bash
-python3 -m tracevolve publish --study .tracevolve/p1a-smoke-001 \
+python3 -m tracevolve publish --study .tracevolve/p1a-smoke-002 \
   --expected-generation 0 --maintainer YOUR_NAME --confirm
-python3 -m tracevolve resume --study .tracevolve/p1a-smoke-001
+python3 -m tracevolve resume --study .tracevolve/p1a-smoke-002
 ```
 
 拒绝或证据不足时使用基线。工具契约 v2 将 `requires_check=true` 对应的模式从 `checked` 改为 `verified`，工具说明同步更新。相关许可被暂停；隔离复验仍可测试候选，但不会自动扩大正式许可。回归则退休，其他结果暂缓并保存新证据。
 
 ```bash
-python3 -m tracevolve rollback --study .tracevolve/p1a-smoke-001 \
+python3 -m tracevolve rollback --study .tracevolve/p1a-smoke-002 \
   --expected-generation 1 --reason observed-regression
 ```
 
@@ -94,6 +94,14 @@ python3 -m tracevolve rollback --study .tracevolve/p1a-smoke-001 \
 ```
 
 研究目录默认不提交 Git。`verify` 校验对象、原始文件和审计链；哈希检测内容漂移，不是第三方执行认证。换代码、CLI、模型配置或任务规则后必须新建研究。`resume` 只复用完全相同的请求，不静默重试失败调用；如存在不确定调用，应先人工核对已有日志。
+
+还可离线重放资源工具状态，核对记录中的每个响应及最终结果：
+
+```bash
+python3 scripts/audit_resource_runs.py --study .tracevolve/p0-smoke-001
+```
+
+该检查要求环境源码与运行时快照一致，不重新询问模型。源码全文同时存入研究对象库，便于在后续实现变化后复查历史运行。
 
 ## 测试与进一步阅读
 

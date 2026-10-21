@@ -32,6 +32,10 @@ python3 -m tracevolve resume --study .tracevolve/p0-smoke-001
 
 CLI 超时会终止整个进程组，包括 MCP 子进程。Codex 内部网络重试属于客户端行为，JSON 事件能看到的部分原样保存，不能声称底层请求恰好执行一次。
 
+SIGTERM 和终端中断同样会取消子进程，并保存 uncertain 状态及已生成的原始文件。MCP 服务若被异常重启，不能悄悄复位同一次任务的状态。启动上下文审计不注册任务 MCP；正式执行才会初始化任务服务。
+
+`python3 scripts/audit_resource_runs.py --study <目录>` 可用原环境语义重放工具轨迹，检查声明响应和终态的一致性。此检查不产生模型调用，也不修改原始事实。
+
 ## 工程与费用验收
 
 | 指标 | 解释 |
