@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -9,7 +10,7 @@ from .config import Config
 from .contracts import Bundle, Patch
 from .legacy import pilot
 from .tasks import plan_tasks, rename, tool_contract
-from .util import canonical, digest, now, read_json, source_manifest, write_json
+from .util import canonical, digest, now, read_json, source_manifest, text_hash, write_json
 
 
 PROPOSAL_SCHEMA = {"type": "object", "additionalProperties": False,
@@ -59,13 +60,21 @@ class Study:
         code_root = Path(__file__).parent
         archive = {"files": {name: (code_root / name).read_text() for name in identity["source"]},
                    "archived_at": now(), "timing": "before execution"}
-        if any(digest_text != __import__("hashlib").sha256(archive["files"][name].encode()).hexdigest()
+        if any(digest_text != text_hash(archive["files"][name])
                for name, digest_text in identity["source"].items()):
             raise ValueError("source changed during freeze")
         s.set("source_archive", s.put(archive))
         forbidden = set()
         for path in c.prior_studies:
-            manifest = read_json(Path(path) / "manifest.json")
+            from .store import Store
+            prior = Store(path)
+            try:
+                prior.verify()
+                manifest = prior.get(prior.state("frozen"))
+                if digest(read_json(Path(path) / "manifest.json")) != digest(manifest):
+                    raise ValueError("prior study manifest was modified")
+            finally:
+                prior.close()
             for tasks in manifest["tasks"].values():
                 forbidden.update(t["template_id"] for t in tasks)
         tasks = plan_tasks(c.seed, c.max_development_tasks, c.target_modifications,
@@ -219,7 +228,11 @@ class Study:
                     prompt="Evaluate this frozen modification using only the supplied evidence. No tools are available.\n" + canonical(request),
                     schema=JUDGE_SCHEMA, config=self.config, phase="judgment")
                 value = response.get("response", {})
-                valid = response["status"] == "completed" and type(value.get("accept")) is bool and isinstance(value.get("rationale"), str)
+                gain = value.get("estimated_gain") if isinstance(value, dict) else None
+                valid = (response["status"] == "completed" and isinstance(value, dict)
+                         and set(value) == {"accept", "rationale", "estimated_gain"}
+                         and type(value.get("accept")) is bool and isinstance(value.get("rationale"), str)
+                         and (gain is None or (type(gain) in (int, float) and math.isfinite(gain))))
                 entry = {"request": request, "run_id": response["run_id"], "group": group, "unit_id": unit["unit_id"],
                          "response": {**value, "usage": {"cost_usd": response.get("cost_usd")}} if valid else None,
                          "error": None if valid else response.get("error", "INVALID_JUDGMENT"), "sealed_at": now()}
@@ -311,6 +324,8 @@ class Study:
         units = self.store.state("units", [])
         if not units:
             raise ValueError("no candidate: report only; no fabricated v2 unit")
+        if len(units) != len(self.store.state("candidates", [])):
+            raise ValueError("incomplete candidate coverage: refuse to export a successful subset")
         if self.config.phase != "p0":
             raise ValueError("v0.2.1 export is reserved for the frozen Prompt-only P0 protocol")
         data = self.data(units)
@@ -325,5 +340,8 @@ class Study:
         bank = self.store.root / "judgments" / "sealed.json"
         if not bank.is_file():
             raise ValueError("judgments have not been sealed")
+        reference = self.store.state("judgments_sealed")
+        if not reference or digest(read_json(bank)) != digest(self.store.get(reference)):
+            raise ValueError("sealed judgment file differs from immutable evidence")
         command = [sys.executable, "-m", "tracevolve.recorded_judge", "--bank", str(bank)]
         return pilot.run(read_json(path), self.store.root / "replay", command, False)

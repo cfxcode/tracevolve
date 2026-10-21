@@ -1,7 +1,11 @@
 import json
 import os
+import signal
+import subprocess
+import sys
 import tempfile
 import textwrap
+import time
 import unittest
 from dataclasses import replace
 from pathlib import Path
@@ -63,6 +67,45 @@ print(json.dumps({'type':'turn.completed','usage':{'input_tokens':10,'output_tok
         self.assertEqual(result["status"], "uncertain")
         with self.assertRaises(RuntimeError):
             adapter.infer(store=self.store, logical_id="new", prompt="test", schema=None, config=self.config, phase="test")
+
+    def test_sigterm_terminates_child_and_preserves_uncertain_ledger(self):
+        child_pid = self.root / "child.pid"
+        adapter = self.adapter(f"open({str(child_pid)!r}, 'w').write(str(os.getpid()))\ntime.sleep(20)\n")
+        other_store = self.root / "signal-study"
+        driver = textwrap.dedent(f"""
+from tracevolve.codex import CodexAdapter
+from tracevolve.config import Config
+from tracevolve.store import Store
+s=Store({str(other_store)!r})
+try:
+    CodexAdapter({adapter.executable!r}).infer(store=s, logical_id='signal-test', prompt='test', schema=None,
+        config=Config(auth_home={str(self.auth)!r}), phase='test')
+except KeyboardInterrupt:
+    raise SystemExit(130)
+finally:
+    s.close()
+""")
+        proc = subprocess.Popen([sys.executable, "-c", driver], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            deadline = time.monotonic() + 10
+            while not child_pid.exists() and time.monotonic() < deadline:
+                time.sleep(.02)
+            self.assertTrue(child_pid.exists())
+            proc.send_signal(signal.SIGTERM)
+            proc.communicate(timeout=10)
+            self.assertEqual(proc.returncode, 130)
+            with self.assertRaises(ProcessLookupError):
+                os.kill(int(child_pid.read_text()), 0)
+            saved = Store(other_store)
+            try:
+                self.assertEqual(saved.calls()[0]["status"], "uncertain")
+                self.assertTrue(saved.get(saved.calls()[0]["result_hash"])["raw_files"])
+                self.assertTrue(saved.verify()["verified"])
+            finally:
+                saved.close()
+        finally:
+            if proc.poll() is None:
+                proc.kill(); proc.communicate()
 
     def test_success_without_actual_skill_delivery_fails(self):
         adapter = self.adapter("print(json.dumps({'type':'turn.completed','usage':{'input_tokens':1}}))\n")

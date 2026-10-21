@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import re
 import shutil
 import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -40,6 +42,7 @@ class CodexAdapter:
     def runtime_identity(self):
         version = subprocess.check_output([self.executable, "--version"], text=True).strip()
         return {"adapter": "codex-exec-json-v1", "version": version,
+                "python": sys.version, "platform": platform.platform(),
                 "binary_sha256": __import__("hashlib").sha256(Path(self.executable).resolve().read_bytes()).hexdigest(),
                 "disabled_features": list(DISABLED), "skip_host_skill_discovery": True,
                 "project_doc_max_bytes": 0, "web_search": "disabled",
@@ -79,6 +82,8 @@ class CodexAdapter:
     def _options(self, config, server_root=None):
         options = ["-m", config.model, "-s", "read-only"]
         values = {"model_reasoning_effort": config.reasoning_effort, "approval_policy": "never",
+                  "forced_login_method": "chatgpt",
+                  "agents.enabled": False,
                   "project_doc_max_bytes": 0, "web_search": "disabled", "history.persistence": "none",
                   "features.skip_host_skill_discovery": True, "suppress_unstable_features_warning": True}
         values.update({"features." + f: False for f in DISABLED})
@@ -109,6 +114,13 @@ class CodexAdapter:
         outcome = {"run_id": logical_id, "status": "failed", "cost_usd": None,
                    "billing_mode": "chatgpt_subscription", "usage": None,
                    "execution_origin": "live_model", "synthetic": False, "events": [], "tool_events": []}
+        interruption = None
+        previous_sigterm = None
+        if threading.current_thread() is threading.main_thread():
+            previous_sigterm = signal.getsignal(signal.SIGTERM)
+            def interrupt(signum, frame):
+                raise KeyboardInterrupt("SIGTERM")
+            signal.signal(signal.SIGTERM, interrupt)
         try:
             with tempfile.TemporaryDirectory(prefix="tracevolve-") as tmp:
                 temp = Path(tmp)
@@ -200,7 +212,7 @@ class CodexAdapter:
                         outcome["usage"] = event.get("usage")
                     if event.get("type") == "item.completed" and event.get("item", {}).get("type") == "agent_message":
                         outcome["text"] = event["item"].get("text", "")
-                forbidden = [e for e in events if e.get("item", {}).get("type") in ("command_execution", "file_change", "web_search")
+                forbidden = [e for e in events if e.get("item", {}).get("type") in ("command_execution", "file_change", "web_search", "collab_agent_tool_call")
                              or (e.get("item", {}).get("type") == "mcp_tool_call" and
                                  (not server_input or e["item"].get("server") != "resources"))]
                 if forbidden:
@@ -216,13 +228,13 @@ class CodexAdapter:
                         outcome.update(status="failed", error="INVALID_JSON_RESPONSE")
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             outcome.update(status="failed", error=type(exc).__name__ + ": " + str(exc))
-        except (KeyboardInterrupt, SystemExit):
+        except (KeyboardInterrupt, SystemExit) as exc:
             outcome.update(status="uncertain", error="CANCELLED")
-            outcome["elapsed_seconds"] = time.monotonic() - start
-            store.finish(logical_id, outcome)
-            raise
+            interruption = exc
         finally:
             self.cancel()
+            if previous_sigterm is not None:
+                signal.signal(signal.SIGTERM, previous_sigterm)
         outcome["elapsed_seconds"] = time.monotonic() - start
         if (run_dir / "tool_events.jsonl").exists():
             outcome["tool_events"] = [json.loads(s) for s in (run_dir / "tool_events.jsonl").read_text().splitlines()]
@@ -255,7 +267,10 @@ class CodexAdapter:
         # request ledger and the explicit error, never silently issue a retry.
         # Bind exact raw files for later verification; do not rewrite them.
         outcome["raw_files"] = {str(p.relative_to(store.root)): text_hash(p.read_text()) for p in sorted(run_dir.iterdir()) if p.is_file()}
-        return store.finish(logical_id, outcome)
+        result = store.finish(logical_id, outcome)
+        if interruption is not None:
+            raise interruption
+        return result
 
     def execute(self, *, store, logical_id, bundle, task, contract, config, phase):
         snapshot = self.snapshot(bundle, contract, config)

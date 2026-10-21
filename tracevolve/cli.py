@@ -81,6 +81,9 @@ def main(argv=None):
                 result = Registry(store).rollback(expected_generation=args.expected_generation, reason=args.reason)
         print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
         return 0
+    except KeyboardInterrupt:
+        print(canonical({"error": "CANCELLED", "message": "execution terminated; inspect the ledger before resuming"}), file=sys.stderr)
+        return 130
     except (ValueError, RuntimeError, OSError) as exc:
         print(canonical({"error": type(exc).__name__, "message": str(exc)}), file=sys.stderr)
         return 1

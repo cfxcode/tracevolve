@@ -56,6 +56,8 @@ class Patch:
     def validate(self, base: Bundle):
         if base.hash != self.baseline_hash or base == self.candidate or not self.source_runs:
             raise ValueError("patch must bind a different candidate and real source runs")
+        if not isinstance(self.hypothesis, str) or not self.hypothesis.strip() or any(not isinstance(r, str) or not r for r in self.source_runs):
+            raise ValueError("patch hypothesis and source run identities must be nonempty strings")
         if self.component == "prompt":
             if self.candidate.skill != base.skill:
                 raise ValueError("P0 allows only prompt edits")

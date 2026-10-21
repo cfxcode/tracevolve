@@ -35,6 +35,10 @@ def tool_specs(contract):
 
 def serve(root):
     root = Path(root)
+    # A transparent MCP restart must not reset an already-mutated environment.
+    # A separate run always has a distinct root and a distinct state machine.
+    with (root / "server.started").open("x") as marker:
+        marker.write(now())
     spec = read_json(root / "server_input.json")
     env = ResourceEnvironment(spec["task"], spec["contract"], spec["max_tool_calls"])
     loaded = False

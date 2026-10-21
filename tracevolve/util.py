@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -25,12 +26,17 @@ def now() -> str:
 
 def write_json(path: Path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + ".tmp")
-    with temporary.open("w") as f:
-        f.write(canonical(value) + "\n")
-        f.flush()
-        os.fsync(f.fileno())
-    temporary.replace(path)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, prefix=".write-", delete=False) as f:
+            temporary = Path(f.name)
+            f.write(canonical(value) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        temporary.replace(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def read_json(path: Path):

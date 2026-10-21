@@ -1,4 +1,6 @@
 import copy
+import contextlib
+import io
 import json
 import sqlite3
 import subprocess
@@ -278,6 +280,34 @@ class StudyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Study(self.store, adapter, replace(self.config, seed=999)).freeze()
 
+    def test_export_refuses_partial_candidate_coverage(self):
+        study = Study(self.store, SyntheticAdapter(), self.config)
+        study.run()
+        self.store.set("candidates", self.store.state("candidates") * 2)
+        with self.assertRaisesRegex(ValueError, "candidate coverage"):
+            study.export()
+
+    def test_replay_refuses_modified_sealed_file(self):
+        study = Study(self.store, SyntheticAdapter(), self.config)
+        study.run()
+        bank_path = self.store.root / "judgments/sealed.json"
+        bank = read_json(bank_path)
+        next(iter(bank.values()))["response"]["accept"] = False
+        write_json(bank_path, bank)
+        with self.assertRaisesRegex(ValueError, "immutable evidence"):
+            study.replay()
+
+    def test_bad_judge_gain_is_failure_not_a_decision(self):
+        class InvalidJudge(SyntheticAdapter):
+            def infer(self, **kwargs):
+                result = super().infer(**kwargs)
+                if kwargs["phase"] == "judgment":
+                    result["response"]["estimated_gain"] = "not-a-number"
+                return result
+        report = Study(self.store, InvalidJudge(), self.config).run()
+        self.assertFalse(report["data_complete"])
+        self.assertEqual(report["stop_reason"], "JUDGE_FAILED")
+
     def test_p1a_skill_experiment_and_contract_change(self):
         config = replace(self.config, phase="p1a")
         study = Study(self.store, SyntheticAdapter(), config)
@@ -299,11 +329,10 @@ class MemoryTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.store = Store(self.temp.name)
-        self.candidate = {"id": "skill-1", "baseline_hash": Bundle().hash, "candidate": asdict(Bundle(skill="Check prerequisites"))}
-        self.permit = {"status": "pending_validation", "bundle_hash": Bundle(**self.candidate["candidate"]).hash,
-                       "task_family": "resource-dependency-tasks", "dependencies": {"version": "resource-v1", "checked_mode": "checked"}}
-        self.store.set("permit", self.permit)
-        self.store.set("release_decision", {"publish_eligible": True, "candidate": "skill-1", "status": "deferred"})
+        with contextlib.redirect_stdout(io.StringIO()):
+            Study(self.store, SyntheticAdapter(), Config(phase="p1a", max_development_tasks=1)).run()
+        self.candidate = self.store.state("candidates")[0]
+        self.permit = self.store.state("permit")
 
     def tearDown(self):
         self.store.close(); self.temp.cleanup()
@@ -334,6 +363,12 @@ class MemoryTests(unittest.TestCase):
     def test_no_permission_from_global_active_only(self):
         self.assertEqual(applicability({"status": "active"}, task_family="x", contract={}, bundle_hash="x")["result"], "inapplicable")
 
+    def test_publish_rechecks_evidence_not_just_a_boolean(self):
+        decision = self.store.state("release_decision")
+        self.store.set("release_decision", {**decision, "evidence_refs": []})
+        with self.assertRaisesRegex(ValueError, "missing or inconsistent"):
+            Registry(self.store).publish(self.candidate, expected_generation=0, maintainer="tester")
+
 
 class MCPTests(unittest.TestCase):
     def test_real_stdio_server_load_gate_and_receipts(self):
@@ -352,6 +387,10 @@ class MCPTests(unittest.TestCase):
             self.assertIn("LOAD_BUNDLE_REQUIRED", responses[1]["result"]["content"][0]["text"])
             self.assertIn("Test skill", responses[2]["result"]["content"][0]["text"])
             self.assertTrue(read_json(root / "environment_result.json")["loaded"])
+            self.assertEqual(len((root / "tool_events.jsonl").read_text().splitlines()), 3)
+            restart = subprocess.run([sys.executable, "-m", "tracevolve.task_server", "--root", d],
+                                     input="", capture_output=True, text=True)
+            self.assertNotEqual(restart.returncode, 0)
             self.assertEqual(len((root / "tool_events.jsonl").read_text().splitlines()), 3)
 
 
