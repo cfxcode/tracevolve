@@ -6,7 +6,7 @@ TraceVolve 保存原始执行事实，冻结候选，再用独立会话验证。
 
 ## 安装与预检
 
-需要 Python 3.11+、已登录 ChatGPT 的 Codex CLI。当前适配并固定 `codex-cli 0.163.0`、`gpt-6-astra`、推理强度 `high`。生产代码使用 Python 标准库。
+需要 Python 3.11+、已登录 ChatGPT 的 Codex CLI。执行器使用 POSIX 进程组（macOS/Linux）。当前适配并固定 `codex-cli 0.163.0`、`gpt-6-astra`、推理强度 `high`。生产代码使用 Python 标准库。
 
 ```bash
 python3 -m venv .venv
@@ -23,6 +23,7 @@ python3 -m venv .venv
 python3 -m tracevolve run --config configs/smoke.json --study .tracevolve/p0-smoke-001
 python3 -m tracevolve report --study .tracevolve/p0-smoke-001
 python3 -m tracevolve verify --study .tracevolve/p0-smoke-001
+# 仅在产生候选且证据就绪时导出和回放：
 python3 -m tracevolve export --study .tracevolve/p0-smoke-001
 python3 -m tracevolve replay --study .tracevolve/p0-smoke-001
 ```
