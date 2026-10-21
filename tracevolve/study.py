@@ -26,7 +26,7 @@ DECISION = {"delta": .05, "indifference": .01, "alpha": .05, "min_heldout_pairs"
 
 def projection(run):
     """One public trace, not repeated full prompts or private evaluator state."""
-    result = {"run_id": run["run_id"], "status": run["status"],
+    result = {"run_id": "run-" + digest(run["run_id"])[:24], "status": run["status"],
               "harness_sha256": run["harness"]["sha256"], "task_sha256": run["task_sha256"],
               "execution_cost_usd": run.get("cost_usd")}
     if run["status"] == "completed":
@@ -173,7 +173,7 @@ class Study:
             if unit["frozen"][side] != run["harness"]:
                 raise ValueError("loaded snapshot differs from frozen pair")
         completed = all(r["status"] == "completed" for r in runs)
-        event = {"event_id": unit["unit_id"] + ":" + key, "type": "paired_validation",
+        event = {"event_id": "event-" + digest(unit["unit_id"] + ":" + key)[:24], "type": "paired_validation",
                  "status": "completed" if completed else "failed", "valid": completed,
                  "synthetic": any(r.get("synthetic") for r in runs), "cost_usd": None,
                  "cost_scope": "execution_only", "binding": unit["binding"], "task": task,

@@ -259,6 +259,16 @@ class StudyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             study.export()
 
+    def test_public_run_and_event_ids_do_not_reveal_strategy_labels(self):
+        study = Study(self.store, SyntheticAdapter(), self.config)
+        study.run()
+        for unit in self.store.state("units"):
+            for channel in ("initial_evidence", "extra_B", "extra_C"):
+                for event in unit[channel]:
+                    ids = [event["event_id"]] + [event["observation"][side]["run_id"] for side in ("baseline", "candidate")]
+                    for identifier in ids:
+                        self.assertFalse(any(label in identifier for label in ("initial", "repeat", "rename", "baseline", "candidate")))
+
     def test_judge_failure_not_rejection_and_no_heldout(self):
         adapter = SyntheticAdapter(failure_phase="judgment")
         report = Study(self.store, adapter, self.config).run()
