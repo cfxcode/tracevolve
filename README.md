@@ -6,7 +6,7 @@ An evidence-based framework for agent self-improvement. The initial release supp
 
 TraceVolve preserves raw execution evidence, freezes candidates, and validates them in independent sessions. Candidates may be rejected, and development tasks may produce no candidates; both outcomes are recorded faithfully. The current version does not support continuous automatic upgrades, arbitrary code modifications, or multi-agent topology optimization.
 
-Implementation support and live acceptance are tracked separately in the [acceptance record](docs/acceptance.md). The later [inventory](docs/capacity-acceptance.md) and [allocation](docs/allocation-acceptance.md) records retain the unsuccessful candidate-discovery batches.
+Implementation support and live acceptance are tracked separately. The [latest calibration record](docs/calibration-status.md) reports 43 successful live executions, zero agent errors, and zero natural candidates: the real optimization loop remains unaccepted. The [original acceptance record](docs/acceptance.md) is preserved.
 
 ## Installation and preflight
 

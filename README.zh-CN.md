@@ -6,7 +6,7 @@
 
 TraceVolve 保存原始执行事实，冻结候选，再用独立会话验证。候选可能被拒绝，开发任务也可能没有产生候选；这些结果会如实保留。当前版本不提供连续自动升级、任意代码修改或多 Agent 拓扑优化。
 
-实现支持与真实验收分别记录在[验收文档](docs/acceptance.md)中；后续[库存任务](docs/capacity-acceptance.md)和[分配任务](docs/allocation-acceptance.md)记录保留了未找到候选的批次。
+实现支持与真实验收分别记录。[最新校准记录](docs/calibration-status.md)包含本轮 43 次真实成功执行、零 Agent 错误、零自然候选；真实优化闭环仍未验收。[原始验收快照](docs/acceptance.md)继续保留。
 
 ## 安装与预检
 
