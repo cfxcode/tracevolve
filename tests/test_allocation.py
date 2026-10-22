@@ -143,5 +143,34 @@ class AllocationTests(unittest.TestCase):
             outputs=[json.loads(json.loads(line)['result']['content'][0]['text']) for line in proc.stdout.splitlines()]
             self.assertEqual(outputs,[e['output'] for e in events])
 
+    def test_synthetic_export_and_lifecycle_preserve_allocation_contract(self):
+        # Protocol wiring only. These synthetic decisions are not live evidence;
+        # inventory semantics and stdio are checked in separate tests above.
+        from test_core import SyntheticAdapter
+        from tracevolve.store import Store
+        from tracevolve.study import Study
+        from tracevolve.memory import Registry
+        for profile in ('allocation-v1','allocation-precision-v1'):
+            for phase in ('p0','p1a'):
+                with tempfile.TemporaryDirectory() as root, contextlib.redirect_stdout(io.StringIO()):
+                    store=Store(root)
+                    try:
+                        study=Study(store,SyntheticAdapter(),Config(phase=phase,task_profile=profile,max_development_tasks=1))
+                        report=study.run()
+                        if phase=='p0':
+                            self.assertTrue(report['data_complete'])
+                            self.assertTrue((Path(root)/'export/records.v2.json').is_file())
+                        else:
+                            self.assertEqual(report['phase'],'AWAITING_MAINTAINER')
+                            Registry(store).publish(store.state('candidates')[0],expected_generation=0,maintainer='synthetic test')
+                            lifecycle=study.run()['lifecycle']
+                            self.assertTrue(lifecycle['revalidation_complete'])
+                            self.assertTrue(lifecycle['skill_paused_for_new_contract'])
+                            changed=lifecycle['contract_change']['new_contract']
+                            self.assertEqual(changed['version'],'resource-allocation-v2')
+                            self.assertTrue(changed['pool_assignment'])
+                    finally:
+                        store.close()
+
 
 if __name__=='__main__':unittest.main()

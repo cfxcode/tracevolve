@@ -6,6 +6,8 @@
 
 TraceVolve 保存原始执行事实，冻结候选，再用独立会话验证。候选可能被拒绝，开发任务也可能没有产生候选；这些结果会如实保留。当前版本不提供连续自动升级、任意代码修改或多 Agent 拓扑优化。
 
+实现支持与真实验收分别记录在[验收文档](docs/acceptance.md)中；后续[库存任务](docs/capacity-acceptance.md)和[分配任务](docs/allocation-acceptance.md)记录保留了未找到候选的批次。
+
 ## 安装与预检
 
 需要 Python 3.11+、已登录 ChatGPT 的 Codex CLI。执行器使用 POSIX 进程组（macOS/Linux）。当前适配并固定 `codex-cli 0.163.0`、`gpt-6-astra`、推理强度 `high`。生产代码使用 Python 标准库。

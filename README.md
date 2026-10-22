@@ -6,6 +6,8 @@ An evidence-based framework for agent self-improvement. The initial release supp
 
 TraceVolve preserves raw execution evidence, freezes candidates, and validates them in independent sessions. Candidates may be rejected, and development tasks may produce no candidates; both outcomes are recorded faithfully. The current version does not support continuous automatic upgrades, arbitrary code modifications, or multi-agent topology optimization.
 
+Implementation support and live acceptance are tracked separately in the [acceptance record](docs/acceptance.md). The later [inventory](docs/capacity-acceptance.md) and [allocation](docs/allocation-acceptance.md) records retain the unsuccessful candidate-discovery batches.
+
 ## Installation and preflight
 
 Requires Python 3.11+ and Codex CLI authenticated through ChatGPT. The executor uses POSIX process groups (macOS/Linux). The current integration pins `codex-cli 0.163.0`, `gpt-6-astra`, and reasoning effort `high`. Production code uses the Python standard library.
