@@ -2,11 +2,11 @@
 
 [English](README.md) | 中文
 
-基于执行证据的 Agent 自优化框架。首期支持 Codex CLI、资源依赖任务、P0 Prompt 修改与 P1a Skill 单轮验证。早期设计名为 EvoHarness。
+基于执行证据的 Agent 自优化框架。首期支持 Codex CLI、资源依赖与受控 Python 代码维护任务、P0 Prompt 修改与 P1a Skill 单轮验证。早期设计名为 EvoHarness。
 
-TraceVolve 保存原始执行事实，冻结候选，再用独立会话验证。候选可能被拒绝，开发任务也可能没有产生候选；这些结果会如实保留。当前版本不提供连续自动升级、任意代码修改或多 Agent 拓扑优化。
+TraceVolve 保存原始执行事实，冻结候选，再用独立会话验证。候选可能被拒绝，开发任务也可能没有产生候选；这些结果会如实保留。当前版本不提供连续自动升级、任意 Harness 代码修改或多 Agent 拓扑优化。
 
-实现支持与真实验收分别记录。[最新校准记录](docs/calibration-status.md)包含本轮 43 次真实成功执行、零 Agent 错误、零自然候选；真实优化闭环仍未验收。[原始验收快照](docs/acceptance.md)继续保留。
+实现支持与真实验收分别记录。[资源任务校准记录](docs/calibration-status.md)包含该轮 43 次真实成功执行、零 Agent 错误、零自然候选；真实优化闭环仍未验收。[原始验收快照](docs/acceptance.md)继续保留。[新增代码维护记录](docs/code-maintenance-acceptance.md)包含 7 次真实成功执行，仍无自然候选，真实 Skill 闭环尚未完成验收。
 
 新增受控 Python 代码维护任务域，目前真实代码执行需要 macOS。任务源码产物与 Prompt／文本 Skill 候选分开保存。[代码实验协议](docs/code-maintenance-protocol.md)规定了不可修改的公开测试、宿主独立验收和模块重命名验证；这类实验不冒充资源任务的 v0.2.1 导出。
 

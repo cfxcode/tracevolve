@@ -2,11 +2,11 @@
 
 English | [中文](README.zh-CN.md)
 
-An evidence-based framework for agent self-improvement. The initial release supports Codex CLI, resource dependency tasks, P0 prompt modifications, and P1a single-round Skill validation. The project's early design name was EvoHarness.
+An evidence-based framework for agent self-improvement. The initial release supports Codex CLI, resource dependency and controlled Python maintenance tasks, P0 prompt modifications, and P1a single-round Skill validation. The project's early design name was EvoHarness.
 
-TraceVolve preserves raw execution evidence, freezes candidates, and validates them in independent sessions. Candidates may be rejected, and development tasks may produce no candidates; both outcomes are recorded faithfully. The current version does not support continuous automatic upgrades, arbitrary code modifications, or multi-agent topology optimization.
+TraceVolve preserves raw execution evidence, freezes candidates, and validates them in independent sessions. Candidates may be rejected, and development tasks may produce no candidates; both outcomes are recorded faithfully. The current version does not support continuous automatic upgrades, arbitrary Harness code modifications, or multi-agent topology optimization.
 
-Implementation support and live acceptance are tracked separately. The [latest calibration record](docs/calibration-status.md) reports 43 successful live executions, zero agent errors, and zero natural candidates: the real optimization loop remains unaccepted. The [original acceptance record](docs/acceptance.md) is preserved.
+Implementation support and live acceptance are tracked separately. The [resource calibration record](docs/calibration-status.md) reports 43 successful live executions, zero agent errors, and zero natural candidates: the real optimization loop remains unaccepted. The [original acceptance record](docs/acceptance.md) is preserved. The [new code-maintenance record](docs/code-maintenance-acceptance.md) adds 7 successful live executions with no natural candidates; it does not complete real Skill-loop acceptance.
 
 The second task domain now supports controlled Python code maintenance on macOS. Task source changes are saved separately from textual Prompt/Skill candidates. The [code experiment protocol](docs/code-maintenance-protocol.md) defines immutable public tests, host-only acceptance, and module-renaming validation; these runs do not use the resource v0.2.1 export.
 

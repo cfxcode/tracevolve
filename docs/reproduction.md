@@ -66,3 +66,13 @@ CI 同时运行 Linux 与 macOS，以实际检查沙箱和任务修复。
 `code_acceptance.json` 是会话结束后宿主重新执行的验收结果。
 `scripts/audit_resource_runs.py` 会按任务域分派回放，并重新测试代码产物，
 不只检查日志哈希。源码修订后，必须使用研究归档对应的版本执行回放。
+
+
+旧研究可直接使用归档源码，无需切换 checkout：
+
+```bash
+python3 scripts/audit_archived_study.py --study .tracevolve/p1a-code-smoke-001
+```
+
+脚本先校验冻结实现与源码归档哈希，再在临时目录载入历史包，重放工具和本地
+验收。`--summary-output <路径>` 可同时生成公开摘要；这不调用真实模型。

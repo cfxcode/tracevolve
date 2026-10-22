@@ -78,3 +78,10 @@ python3 scripts/audit_calibration_splits.py \
 不能把当前源码直接当作历史实现。新的真实执行应使用新研究目录并更新配置中的 `prior_studies`；
 先运行 `scripts/certify_allocation.py`，再运行校准脚本或 `tracevolve run`。
 当前约束、分支条件和种子见 [分配协议](allocation-protocol.md)。远端模型行为不保证逐次相同。
+
+
+## 经用户批准新增的代码维护任务域
+
+此后已接入受控 Python 代码维护，新增 7 次真实执行均成功，仍没有自然候选。
+详见[独立验收记录](code-maintenance-acceptance.md)。这是范围调整后的第二任务域，
+与本文的 43 次资源任务分开记录；不据此补写原 P0 或真实 P1a 的通过结论。
