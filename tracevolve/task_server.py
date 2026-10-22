@@ -27,6 +27,15 @@ def tool_specs(contract):
         {"name": "run_job", "description": f"Execute a job once prerequisites are done. requires_check=true requires mode {contract['checked_mode']}; false requires standard. Errors never mutate state.", "inputSchema": schema({"job_id": string, "mode": {"type": "string", "enum": [contract["checked_mode"], "standard"]}})},
         {"name": "submit", "description": "Submit exactly the public goal IDs after completing them. No duplicate IDs.", "inputSchema": schema({"goal_ids": {"type": "array", "items": string}})},
     ]
+    if contract.get("pool_assignment"):
+        specs[1]["description"] += " Also read each resource pool's initial capacity and remaining capacity."
+        specs[2]["description"] += " Read units to reserve and the pool used if already completed."
+        specs[3]["inputSchema"] = schema({"job_id":string, "mode":{"type":"string", "enum":[contract['checked_mode'],'standard']}, "pool":string})
+        specs[3]["description"] += (
+            " Choose a public pool with enough remaining capacity for this job's units."
+            " Successful reservations are permanent for this task; no undo or transfer."
+            " Zero-unit jobs require pool=empty string. Repeated completed jobs do not reserve again."
+            " Plan a feasible assignment for all remaining jobs before committing: locally legal choices can strand later jobs.")
     if contract.get("shared_inventory"):
         specs[1]["description"] += " Also read shared inventory capacity, initial and current available vectors."
         specs[2]["description"] += " Read consumes/produces vectors for the shared inventory."

@@ -1,0 +1,12 @@
+{
+  "study_id": "p1a-allocation-001",
+  "phase": "p1a",
+  "task_profile": "allocation-v1",
+  "seed": 1404501,
+  "max_development_tasks": 6,
+  "max_sessions": 32,
+  "prior_studies": [
+    ".tracevolve/difficulty-allocation-001",
+    ".tracevolve/p0-allocation-smoke-001"
+  ]
+}

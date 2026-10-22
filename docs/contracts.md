@@ -103,3 +103,14 @@ P1a 的 `resource-capacity-v2` 仅将 checked 改为 verified，完整库存契�
 离线 `scripts/solve_capacity.py` 按已完成任务集合搜索可行顺序，不读取生成器内部顺序，
 也不会被执行或提案会话加载。`scripts/certify_capacity.py` 在真实调用前冻结研究并保存
 全部任务的可解证书；P1a 另覆盖固定的后续／复验任务。详见[采集协议](capacity-protocol.md)。
+
+
+## 资源池分配契约
+
+`allocation-v1` 的 `resource-allocation-v1` 保留五个工具名，给 `run_job` 增加必填
+字符串 `pool`。正用量任务选择公开资源池；零用量目标必须使用空字符串。
+用量和依赖由 `inspect_job` 提供，资源池初始／剩余容量由 `list_jobs` 提供。
+成功保留容量在本次任务内不可撤销；错误不修改容量、完成集或分配记录。
+已完成任务重复运行不重复占用。v2 保留分配语义，仅将 checked 改为 verified。
+参考装箱求解器与运行时分离，实际状态回放另外核对 `allocation.py` 的源码哈希。
+完整划分与采集规则见[分配协议](allocation-protocol.md)。

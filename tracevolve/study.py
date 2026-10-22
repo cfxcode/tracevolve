@@ -44,7 +44,7 @@ class Study:
     def __init__(self, store, adapter, config):
         self.store, self.adapter, self.config = store, adapter, config
         self.base = Bundle()
-        self.contract = tool_contract({"recovery-v1": "resource-recovery-v1", "capacity-v1": "resource-capacity-v1"}.get(config.task_profile, "resource-v1"))
+        self.contract = tool_contract({"recovery-v1": "resource-recovery-v1", "capacity-v1": "resource-capacity-v1", "allocation-v1": "resource-allocation-v1"}.get(config.task_profile, "resource-v1"))
 
     def freeze(self):
         s, c = self.store, self.config

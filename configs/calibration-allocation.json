@@ -1,0 +1,8 @@
+{
+  "study_id": "difficulty-allocation-001",
+  "phase": "p0",
+  "task_profile": "allocation-v1",
+  "seed": 1204501,
+  "max_development_tasks": 2,
+  "max_sessions": 2
+}

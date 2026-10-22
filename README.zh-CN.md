@@ -106,6 +106,22 @@ python3 scripts/audit_resource_runs.py --study .tracevolve/difficulty-capacity-0
 `configs/p0-capacity-pilot.json`。对各自研究目录先认证，再执行 `tracevolve run`。
 前序研究排除规则保持任务模板隔离。重新复现应使用新目录并更新 `prior_studies`，不能覆盖冻结研究。
 
+## 资源池分配
+
+`allocation-v1` 要求 Agent 将任务分配给有限资源池。用量、容量和依赖全部公开，
+但局部合法的分配可能导致剩余任务放不下。候选仍只允许修改 Prompt（P0）或 Skill
+文本（P1a），详见[分配协议](docs/allocation-protocol.md)。
+
+```bash
+python3 scripts/certify_allocation.py --config configs/calibration-allocation.json --study .tracevolve/difficulty-allocation-001
+python3 scripts/calibrate_tasks.py --config configs/calibration-allocation.json --study .tracevolve/difficulty-allocation-001
+python3 scripts/audit_resource_runs.py --study .tracevolve/difficulty-allocation-001
+```
+
+独立正式配置为 `configs/p0-allocation-smoke.json`、`configs/p1a-allocation.json`、
+`configs/p0-allocation-pilot.json`，各自采集前先认证可解性。前一轮[共享库存记录](docs/capacity-acceptance.md)
+包含 15 次成功执行、零候选，尚不构成真实优化闭环。
+
 ## 认证、隔离和费用
 
 - 只复用已有 ChatGPT 登录。每次运行在认证目录下租用权限受限的隔离目录，保留刷新后的凭据并在核对回写后清理；若检测到并发登录变化，则保留两份凭据并停止，等待人工核对；不会将其存入研究目录或 Git。API key 环境变量不传入子进程。

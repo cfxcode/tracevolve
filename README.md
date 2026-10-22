@@ -111,6 +111,25 @@ Certify each with its own study path before `tracevolve run`. Prior-study
 exclusions preserve separate task templates. For a new replication, use new
 study paths and update `prior_studies`; never overwrite a frozen study.
 
+## Resource-pool assignment
+
+`allocation-v1` asks the agent to assign jobs to finite resource pools. Units,
+capacities and dependencies are public, but a locally legal assignment can
+strand remaining jobs. The candidate still edits only Prompt text (P0) or Skill
+text (P1a). See the [allocation protocol](docs/allocation-protocol.md).
+
+```bash
+python3 scripts/certify_allocation.py --config configs/calibration-allocation.json --study .tracevolve/difficulty-allocation-001
+python3 scripts/calibrate_tasks.py --config configs/calibration-allocation.json --study .tracevolve/difficulty-allocation-001
+python3 scripts/audit_resource_runs.py --study .tracevolve/difficulty-allocation-001
+```
+
+The independent formal configurations are `configs/p0-allocation-smoke.json`,
+`configs/p1a-allocation.json`, and `configs/p0-allocation-pilot.json`. Certify each
+before collection. The preceding [shared-inventory results](docs/capacity-acceptance.md)
+cover 15 successful executions with zero candidates; they do not establish a
+completed optimization loop.
+
 ## Authentication, isolation, and costs
 
 - Only existing ChatGPT authentication is reused. Each run leases a restricted isolated directory under the authentication home, preserves refreshed credentials, and removes the directory after reconciliation. Concurrent login changes retain both versions and stop execution for manual reconciliation. Credentials are never stored in the study directory or Git. API key environment variables are not passed to child processes.

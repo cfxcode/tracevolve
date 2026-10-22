@@ -8,7 +8,7 @@ from .util import digest
 
 
 def tool_contract(version="resource-v1"):
-    if version not in ("resource-v1", "resource-v2", "resource-recovery-v1", "resource-recovery-v2", "resource-capacity-v1", "resource-capacity-v2"):
+    if version not in ("resource-v1", "resource-v2", "resource-recovery-v1", "resource-recovery-v2", "resource-capacity-v1", "resource-capacity-v2", "resource-allocation-v1", "resource-allocation-v2"):
         raise ValueError("unknown tool contract")
     contract = {"version": version, "explicit_dependencies": True,
             "query_execution_status": True, "invalid_actions_do_not_mutate": True,
@@ -21,10 +21,18 @@ def tool_contract(version="resource-v1"):
     if version.startswith("resource-capacity-"):
         contract.update(shared_inventory=True, inventory_dimensions=4, atomic_inventory_effects=True,
                         irreversible_execution=True, repeat_run_policy="idempotent")
+    if version.startswith("resource-allocation-"):
+        contract.update(pool_assignment=True, allocation_policy="permanent_per_task",
+                        repeat_run_policy="idempotent", invalid_pool_errors_do_not_mutate=True)
     return contract
 
 
 def create_environment(task, contract, max_calls=64):
+    if contract.get("pool_assignment"):
+        from .allocation import AllocationEnvironment
+        return AllocationEnvironment(task, contract, max_calls)
+    if "pools" in task:
+        raise ValueError("allocation task requires allocation contract")
     if contract.get("shared_inventory"):
         from .capacity import CapacityEnvironment
         return CapacityEnvironment(task, contract, max_calls)
@@ -47,7 +55,13 @@ def validate(task):
     probe.validate_task(task)
     if not task["jobs"] or not task["goals"]:
         raise ValueError("nonempty jobs and goals required")
+    allocation = "pools" in task
+    if allocation:
+        from .allocation import validate_pools
+        validate_pools(task)
     capacity = "resources" in task
+    if allocation and capacity:
+        raise ValueError("mixed inventory profiles are unsupported")
     if capacity:
         from .capacity import validate_resources
         validate_resources(task)
@@ -55,7 +69,8 @@ def validate(task):
         if set(job) != {"id", "requires", "payload"}:
             raise ValueError("unexpected job fields")
         p = job["payload"]
-        if set(p) not in (({"kind", "requires_check", "consumes", "produces"},) if capacity else ({"kind", "requires_check"}, {"kind", "requires_check", "fault"})) or p["kind"] not in ("prepare", "build", "verify", "publish") or type(p["requires_check"]) is not bool:
+        allowed = ({"kind", "requires_check", "units"},) if allocation else (({"kind", "requires_check", "consumes", "produces"},) if capacity else ({"kind", "requires_check"}, {"kind", "requires_check", "fault"}))
+        if set(p) not in allowed or p["kind"] not in ("prepare", "build", "verify", "publish") or type(p["requires_check"]) is not bool:
             raise ValueError("invalid payload")
         if "fault" in p and p["fault"] not in ("stable", "busy_once", "lost_ack_once"):
             raise ValueError("invalid recovery fault category")
@@ -155,10 +170,14 @@ def semantic_identity(task, include_payload=True):
         return cache[i]
     return digest({"nodes": sorted(signature(i) for i in by_id),
                    "goals": sorted(signature(i) for i in task["goals"]),
-                   **({"resources": task["resources"]} if include_payload and "resources" in task else {})})
+                   **({"resources": task["resources"]} if include_payload and "resources" in task else {}),
+                   **({"pools": task["pools"]} if include_payload and "pools" in task else {})})
 
 
 def generate(seed, source_id, split, profile="basic-v1"):
+    if profile == "allocation-v1":
+        from .allocation import generate_allocation
+        return generate_allocation(seed, source_id, split)
     if profile == "capacity-v1":
         from .capacity import generate_capacity
         return generate_capacity(seed, source_id, split)
