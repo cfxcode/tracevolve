@@ -45,3 +45,24 @@ requires existing fixed evidence gates and a maintainer decision. Rejected or
 deferred candidates remain disabled in ordinary execution; isolated revalidation
 does not imply release. This selected procedural task family does not establish
 general optimization efficacy, even if an engineering loop completes.
+
+## Conditional precision calibration (declared before any precision-model run)
+
+If both uniform formal batches finish without a candidate, test the same
+allocation semantics at finer integer granularity. `allocation-precision-v1`
+uses five pools of capacity 1000 and 25 job sizes in [100, 300], generated as
+five feasible partitions and shuffled. These are newly sampled integers, not
+just the original values multiplied by ten. This selected full-capacity packing
+regime has fewer accidental exact-sum combinations; it is a stress distribution,
+not a claim about ordinary production utilization. All task attributes remain
+public, and a reference assignment still takes 55 gateway calls. Model, Prompt,
+64-call/300-second limits and scoring stay fixed.
+
+Use two baseline calibration tasks (seed 1604501), followed, if technically
+valid, by independent P0 smoke (seed 1704501) and P1a (seed 1804501) with up to
+six development tasks and 32 sessions each. Five-candidate pilot seed 1904501
+is reserved for after a complete smoke. The finer-granularity study must exclude
+preceding allocation templates and preserve all unsuccessful calibration or
+formal attempts. No observed candidate or validation result determines which
+seed is used. The protocol may stop for a genuine infrastructure error; it must
+not relabel a timeout as an optimization defect or retry an uncertain request.
