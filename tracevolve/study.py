@@ -44,7 +44,7 @@ class Study:
     def __init__(self, store, adapter, config):
         self.store, self.adapter, self.config = store, adapter, config
         self.base = Bundle()
-        self.contract = tool_contract()
+        self.contract = tool_contract("resource-recovery-v1" if config.task_profile == "recovery-v1" else "resource-v1")
 
     def freeze(self):
         s, c = self.store, self.config
@@ -82,7 +82,7 @@ class Study:
                            c.heldout_tasks_per_modification, forbidden, c.task_profile)
         frozen = {"identity": identity, "tasks": tasks, "baseline": asdict(self.base), "at": now(),
                   "decision": DECISION, "contract": self.contract,
-                  "source_failure_criterion": "completed run with failed submit or at least one erroneous resource action",
+                  "source_failure_criterion": "completed run with failed submit or at least one agent error; predefined environment faults alone are excluded",
                   "candidate_order": "development order, first legal distinct proposals, no outcome selection",
                   "billing_exception": "subscription: unknown USD permits engineering runs; no USD compliance claim",
                   "provider_retry_visibility": "CLI internal requests/retries not fully exposed",
@@ -122,7 +122,7 @@ class Study:
             if run["status"] != "completed":
                 s.set("stop_reason", "INCOMPLETE_DEVELOPMENT_EXECUTION")
                 raise RuntimeError("development infrastructure failure; retained without manufacturing a candidate")
-            failure = not run["evaluation"]["success"] or run["evaluation"]["tool_errors"] > 0
+            failure = not run["evaluation"]["success"] or run["evaluation"].get("agent_errors", run["evaluation"]["tool_errors"]) > 0
             row = {"index": i, "run_id": run["run_id"], "task": task["sha256"], "observed_failure": failure}
             if failure:
                 case = {"id": "case-" + str(i), "source_runs": [run["run_id"]], "task": task,

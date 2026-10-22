@@ -83,3 +83,10 @@ python3 -m tracevolve run --config configs/p1a-planning.json --study .tracevolve
 - 发布从 `BEGIN IMMEDIATE` 开始，许可、判断、证据、候选与父版本的全部检查和状态更新处于同一写事务。已经变成 `needs_revalidation` 的许可不能因旧的事务外读取而重新激活。
 - `verify()` 使用 SQLite savepoint 保持一致读取快照；在发布等已有事务中调用时不提交或回滚调用者的事务。正常并发追加事件、更新状态或完成请求不会造成旧事件与新状态混读。
 - `collab_tool_call` 与兼容的 `collab_agent_tool_call` 均判为越界能力，保留 `capability_violations`，不允许作为成功执行。这是审计防线，不是历史真实运行调用了子 Agent 的证据。
+
+
+## 资源恢复实验配置
+
+`task_profile=recovery-v1` 的完整行为与采集判据见 [恢复协议](recovery-protocol.md)。这是原资源任务域内的新契约；需要一次性校验凭据，并显式区分 `environment_faults` 与 `agent_errors`。预设环境故障不作为 Agent 缺陷；既有 basic/planning 的错误口径保持原样。
+
+该配置冻结 `resource-recovery-v1`；P1a 后续契约变化使用 `resource-recovery-v2`，继续保留凭据与故障恢复规则，仅改变 checked 模式名称。新许可绑定完整工具契约，包含凭据有效期及重复执行规则，不仅绑定版本名称。

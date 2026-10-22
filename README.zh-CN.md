@@ -73,6 +73,19 @@ python3 -m tracevolve rollback --study .tracevolve/p1a-smoke-002 \
 
 发布指针和许可按父版本、作用范围及代数检查；在途运行保持原快照。P1a 不自动开始下一轮搜索。
 
+## 恢复任务校准
+
+实验性 `recovery-v1` 在资源任务域加入短期校验凭据、资源忙响应和执行回执丢失。这些是预设的程序生成环境场景。环境故障与 Agent 处理错误分别记录；成功处理预设故障不会触发候选提案。详见[恢复协议](docs/recovery-protocol.md)。
+
+```bash
+python3 scripts/calibrate_tasks.py --config configs/calibration-recovery.json --study .tracevolve/difficulty-recovery-001
+python3 scripts/audit_resource_runs.py --study .tracevolve/difficulty-recovery-001
+# 检查校准证据后，使用独立的正式任务划分：
+python3 -m tracevolve run --config configs/p1a-recovery.json --study .tracevolve/p1a-recovery-001
+```
+
+校准最多两个基线会话；正式配置最多四个开发任务、32 次会话。两者保持正常基线和二元任务成功评分，不预设修改一定有效。
+
 ## 认证、隔离和费用
 
 - 只复用已有 ChatGPT 登录。每次运行在认证目录下租用权限受限的隔离目录，保留刷新后的凭据并在核对回写后清理；若检测到并发登录变化，则保留两份凭据并停止，等待人工核对；不会将其存入研究目录或 Git。API key 环境变量不传入子进程。

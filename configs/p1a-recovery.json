@@ -1,0 +1,11 @@
+{
+  "study_id": "p1a-recovery-001",
+  "phase": "p1a",
+  "task_profile": "recovery-v1",
+  "seed": 704501,
+  "max_development_tasks": 4,
+  "max_sessions": 32,
+  "max_tool_calls": 64,
+  "timeout_seconds": 300,
+  "prior_studies": [".tracevolve/difficulty-recovery-001"]
+}

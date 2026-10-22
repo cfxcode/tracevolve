@@ -73,6 +73,19 @@ python3 -m tracevolve rollback --study .tracevolve/p1a-smoke-002 \
 
 Release pointers and permissions are checked against the parent version, scope, and generation. In-flight runs retain their original snapshots. P1a does not automatically start another search round.
 
+## Recovery task calibration
+
+The experimental `recovery-v1` profile adds expiring check receipts, transient busy responses, and lost execution acknowledgments within the resource task domain. These are predefined procedural environment scenarios. Environment faults and agent handling errors are recorded separately; successfully handling an injected fault does not trigger a candidate proposal. See the [recovery protocol](docs/recovery-protocol.md) (Chinese).
+
+```bash
+python3 scripts/calibrate_tasks.py --config configs/calibration-recovery.json --study .tracevolve/difficulty-recovery-001
+python3 scripts/audit_resource_runs.py --study .tracevolve/difficulty-recovery-001
+# After reviewing calibration evidence, use an independent formal task split:
+python3 -m tracevolve run --config configs/p1a-recovery.json --study .tracevolve/p1a-recovery-001
+```
+
+Calibration is capped at two baseline sessions. The formal configuration allows four development tasks and at most 32 sessions. Both retain the normal baseline and binary task-success score; no improvement is assumed.
+
 ## Authentication, isolation, and costs
 
 - Only existing ChatGPT authentication is reused. Each run leases a restricted isolated directory under the authentication home, preserves refreshed credentials, and removes the directory after reconciliation. Concurrent login changes retain both versions and stop execution for manual reconciliation. Credentials are never stored in the study directory or Git. API key environment variables are not passed to child processes.

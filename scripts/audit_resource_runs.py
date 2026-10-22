@@ -18,7 +18,11 @@ def replay_run(request, result):
         return {"checked": False, "reason": "not a completed resource execution"}
     if request["implementation"]["tasks.py"] != text_hash(Path(tasks.__file__).read_text()):
         raise ValueError("environment source differs: use the archived source version to audit")
-    env = tasks.ResourceEnvironment(spec["task"], spec["contract"], spec["max_tool_calls"])
+    if spec["contract"].get("check_receipt_required"):
+        from tracevolve import recovery
+        if request["implementation"].get("recovery.py") != text_hash(Path(recovery.__file__).read_text()):
+            raise ValueError("recovery source differs: use the archived source version to audit")
+    env = tasks.create_environment(spec["task"], spec["contract"], spec["max_tool_calls"])
     for event in result["tool_events"]:
         name, args = event["name"], event["arguments"]
         expected = env.call(name, args, bundle=spec["bundle"])
@@ -31,7 +35,9 @@ def replay_run(request, result):
     if canonical(expected) != canonical(observed):
         raise ValueError("reported final outcome differs from replayed resource state")
     return {"checked": True, "success": expected["success"], "tool_calls": expected["tool_calls"],
-            "tool_errors": expected["tool_errors"]}
+            "tool_errors": expected["tool_errors"],
+            **({"agent_errors": expected["agent_errors"], "environment_faults": expected["environment_faults"]}
+               if "agent_errors" in expected else {})}
 
 
 def main(argv=None):

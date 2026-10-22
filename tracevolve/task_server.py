@@ -10,7 +10,7 @@ import json
 import sys
 from pathlib import Path
 
-from tracevolve.tasks import ResourceEnvironment
+from tracevolve.tasks import create_environment
 from tracevolve.util import append_json, digest, now, read_json, write_json
 
 
@@ -27,6 +27,17 @@ def tool_specs(contract):
         {"name": "run_job", "description": f"Execute a job once prerequisites are done. requires_check=true requires mode {contract['checked_mode']}; false requires standard. Errors never mutate state.", "inputSchema": schema({"job_id": string, "mode": {"type": "string", "enum": [contract["checked_mode"], "standard"]}})},
         {"name": "submit", "description": "Submit exactly the public goal IDs after completing them. No duplicate IDs.", "inputSchema": schema({"goal_ids": {"type": "array", "items": string}})},
     ]
+    if contract.get("check_receipt_required"):
+        specs[2]["description"] += " Confirm status after OUTCOME_UNKNOWN before retrying; completed jobs must not be rerun."
+        specs[3] = {"name": "run_job", "description": (
+            f"Execute once dependencies are complete. requires_check=true requires mode {contract['checked_mode']} and a valid check_job receipt; "
+            "false requires standard and an empty receipt. A legal attempt consumes the receipt. RESOURCE_BUSY does not commit; recheck then retry. "
+            "OUTCOME_UNKNOWN may have committed: inspect status before retrying. Completed jobs reject reruns."),
+            "inputSchema": schema({"job_id": string, "mode": {"type": "string", "enum": [contract["checked_mode"], "standard"]}, "receipt": string})}
+        specs.insert(3, {"name": "check_job", "description": (
+            f"Check a pending job after all dependencies complete. Issue a one-use receipt valid for the next {contract['receipt_ttl_calls']} gateway calls. "
+            "Check immediately before run_job; intervening tool calls consume validity. A newer receipt replaces the previous receipt for that job."),
+            "inputSchema": schema({"job_id": string})})
     for spec in specs:
         spec["annotations"] = {"readOnlyHint": spec["name"] in ("load_bundle", "list_jobs", "inspect_job"),
                                "destructiveHint": False, "openWorldHint": False}
@@ -40,7 +51,7 @@ def serve(root):
     with (root / "server.started").open("x") as marker:
         marker.write(now())
     spec = read_json(root / "server_input.json")
-    env = ResourceEnvironment(spec["task"], spec["contract"], spec["max_tool_calls"])
+    env = create_environment(spec["task"], spec["contract"], spec["max_tool_calls"])
     cache = {}
     def persist():
         write_json(root / "environment_result.json", {**env.evaluate(), "loaded": env.loaded,

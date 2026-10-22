@@ -47,7 +47,7 @@ def prepare_release(store, candidate, unit, bank, contract):
         status, reason = "deferred", "maintainer_confirmation_required"
     permit = {"id": "permit-" + candidate["id"], "status": "pending_validation",
               "bundle_hash": Bundle(**candidate["candidate"]).hash, "task_family": "resource-dependency-tasks",
-              "dependencies": {k: contract[k] for k in ("version", "checked_mode", "explicit_dependencies", "query_execution_status")},
+              "dependencies": dict(contract),
               "supporting_evidence": [store.put(e) for e in evidence], "counterexamples": [],
               "candidate": candidate["id"], "at": now()}
     # Execute boundary checks against a temporary active permit, never expose it
@@ -256,7 +256,7 @@ def run_followup(study, frozen, candidate):
         s.set("followup_snapshot", snapshot)
     task, bundle, selection = snapshot["task"], Bundle(**snapshot["bundle"]), snapshot["selection"]
     first = study._run("p1a-followup", bundle, task, "post_release")
-    changed = tool_contract("resource-v2")
+    changed = tool_contract("resource-recovery-v2" if study.contract.get("check_receipt_required") else "resource-v2")
     change = s.state("contract_change") or contract_changed(s, changed)
     after, check = selected_bundle(s, candidate, changed)
     paused = not check["skill_enabled"]

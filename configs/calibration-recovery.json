@@ -1,0 +1,10 @@
+{
+  "study_id": "difficulty-recovery-001",
+  "phase": "p1a",
+  "task_profile": "recovery-v1",
+  "seed": 604501,
+  "max_development_tasks": 2,
+  "max_sessions": 2,
+  "max_tool_calls": 64,
+  "timeout_seconds": 300
+}

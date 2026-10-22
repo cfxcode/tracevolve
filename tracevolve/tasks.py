@@ -8,12 +8,26 @@ from .util import digest
 
 
 def tool_contract(version="resource-v1"):
-    if version not in ("resource-v1", "resource-v2"):
+    if version not in ("resource-v1", "resource-v2", "resource-recovery-v1", "resource-recovery-v2"):
         raise ValueError("unknown tool contract")
-    return {"version": version, "explicit_dependencies": True,
+    contract = {"version": version, "explicit_dependencies": True,
             "query_execution_status": True, "invalid_actions_do_not_mutate": True,
-            "checked_mode": "checked" if version == "resource-v1" else "verified",
+            "checked_mode": "checked" if version.endswith("v1") else "verified",
             "standard_mode": "standard", "family": "resource-dependency-tasks"}
+    if version.startswith("resource-recovery-"):
+        contract.update(check_receipt_required=True, receipt_ttl_calls=3,
+                        repeat_run_policy="reject_committed", environment_faults_may_commit=True,
+                        fault_policy="once_per_job_per_execution")
+    return contract
+
+
+def create_environment(task, contract, max_calls=64):
+    if contract.get("check_receipt_required"):
+        from .recovery import RecoveryEnvironment
+        return RecoveryEnvironment(task, contract, max_calls)
+    if any("fault" in j["payload"] for j in task["jobs"]):
+        raise ValueError("recovery task requires recovery contract")
+    return ResourceEnvironment(task, contract, max_calls)
 
 
 def envelope(content, source_id, **metadata):
@@ -29,8 +43,10 @@ def validate(task):
         if set(job) != {"id", "requires", "payload"}:
             raise ValueError("unexpected job fields")
         p = job["payload"]
-        if set(p) != {"kind", "requires_check"} or p["kind"] not in ("prepare", "build", "verify", "publish") or type(p["requires_check"]) is not bool:
+        if set(p) not in ({"kind", "requires_check"}, {"kind", "requires_check", "fault"}) or p["kind"] not in ("prepare", "build", "verify", "publish") or type(p["requires_check"]) is not bool:
             raise ValueError("invalid payload")
+        if "fault" in p and p["fault"] not in ("stable", "busy_once", "lost_ack_once"):
+            raise ValueError("invalid recovery fault category")
 
 
 class ResourceEnvironment:
@@ -130,10 +146,10 @@ def semantic_identity(task, include_payload=True):
 
 
 def generate(seed, source_id, split, profile="basic-v1"):
-    if profile not in ("basic-v1", "planning-v2"):
+    if profile not in ("basic-v1", "planning-v2", "recovery-v1"):
         raise ValueError("unknown task profile")
     rng = random.Random(seed)
-    n = rng.randint(8, 16) if profile == "basic-v1" else rng.randint(26, 30)
+    n = rng.randint(26, 30) if profile == "planning-v2" else rng.randint(8, 16)
     parents = [[], [0], [1]]
     for i in range(3, n):
         parents.append(sorted(rng.sample(range(i), rng.randint(1, min(3, i)))))
@@ -153,8 +169,15 @@ def generate(seed, source_id, split, profile="basic-v1"):
     jobs = [{"id": ids[i], "requires": [ids[p] for p in parents[i]],
              "payload": {"kind": rng.choice(["prepare", "build", "verify", "publish"]),
                          "requires_check": bool(rng.getrandbits(1))}} for i in range(n)]
+    if profile == "recovery-v1":
+        for job in jobs:
+            job["payload"]["fault"] = "stable"
+        # Both jobs lie on the guaranteed path to the main goal. Faults are
+        # fixed before any model execution and independent of the bundle.
+        jobs[1]["payload"].update(fault="busy_once", requires_check=True)
+        jobs[2]["payload"].update(fault="lost_ack_once", requires_check=True)
     rng.shuffle(jobs)
-    task = {"id": source_id, "jobs": jobs, "goals": [ids[n - 2]] if profile == "basic-v1" else [ids[n - 4], ids[n - 3], ids[n - 2]]}
+    task = {"id": source_id, "jobs": jobs, "goals": [ids[n - 2]] if profile != "planning-v2" else [ids[n - 4], ids[n - 3], ids[n - 2]]}
     validate(task)
     return envelope(task, source_id, split=split, seed=seed,
                     template_id=semantic_identity(task, False), semantic_hash=semantic_identity(task))
