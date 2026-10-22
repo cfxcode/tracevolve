@@ -1,6 +1,6 @@
 # 架构与扩展边界
 
-TraceVolve 的优化核心编排实验，CodexAdapter 保留 Codex 自身的模型和工具循环。资源环境和评价器由宿主控制，候选只能修改明确开放的组件。
+TraceVolve 的优化核心编排实验，CodexAdapter 保留 Codex 自身的模型和工具循环。资源环境、受控代码任务与评价器由宿主控制，候选只能修改明确开放的组件。
 
 ```mermaid
 flowchart LR
@@ -24,6 +24,8 @@ flowchart LR
 | `contracts.py` | Bundle、Patch、完整执行快照、适配器与验证规划协议 |
 | `codex.py` | 认证隔离、启动上下文检查、Codex 子进程、取消、事件归一化、加载核验 |
 | `tasks.py` | DAG 生成、结构分组、双射变换、动作状态机、确定性评价 |
+| `code_tasks.py` / `code_corpus.py` | 代码问题模板、受控文件操作、独立验收与冻结参考证书 |
+| `code_runner.py` / `code_protocol.py` | macOS 代码沙箱、宿主结果比较、独立代码证据契约 |
 | `task_server.py` | 每次执行独占的 MCP stdio 入口、加载门槛、工具回执 |
 | `store.py` | SQLite 控制状态、请求预留、追加审计链、不可变 JSON 对象 |
 | `study.py` | 冻结、自然候选、A/B/C、判断封存、外层评价、导出 |
@@ -57,6 +59,25 @@ flowchart LR
 
 ## 扩展接口
 
-`AgentAdapter`、`EnvironmentAdapter`、`ValidationPlanner` 是未来运行时、任务和验证插件的边界。当前任务插件是资源 DAG；其方法没有被冒充为所有行业任务的共同语义。CodexAdapter 只声明 prompt/skill 可编辑，不接受 Workflow 或脚本补丁。
+`AgentAdapter`、`EnvironmentAdapter`、`ValidationPlanner` 是未来运行时、任务和验证插件的边界。当前任务插件包含资源 DAG 和受控 Python 代码维护；二者各自保留任务语义与证据协议。CodexAdapter 只声明 prompt/skill 可编辑，不接受 Workflow 或脚本补丁。
 
-P1b 的第二任务域与第二运行时、P2 的诊断选择和动态多轮升级、P3 的可执行组件与拓扑编辑均未实现。当前单轮和声明依赖示例不能证明通用性、H1/H2/H3 或任何论文贡献。
+按用户批准新增了第二任务域；P1b 的第二运行时、P2 的诊断选择和动态多轮升级、P3 的可执行组件与拓扑编辑均未实现。当前单轮和声明依赖示例不能证明通用性、H1/H2/H3 或任何论文贡献。
+
+
+## 代码维护任务的补充边界
+
+代码任务复用 CodexAdapter、请求账本、成对执行、判断封存和许可生命周期，
+通过 task profile 分派自己的工具、初始 Prompt、任务划分与评价器。
+资源 v0.2.1 校验器保持原样；代码配对采用 `code-maintenance-v1` 契约，
+不把代码文件包装为资源 DAG，也不宣称已完成第二运行时适配。
+
+任务文件由 MCP 托管，模型只能读写允许的 Python 文件。每次公开／补充测试
+在独立临时目录内执行，macOS Seatbelt 拒绝宿主用户文件、网络与 fork。
+模型不能改动宿主期待值；最终源文件作为 task artifact 保存，Prompt／Skill
+另作为 Harness 候选冻结。源代码执行的功能测试与固定文本 Skill 的发布检查
+是两条不同的证据链。生产上没有任意 Harness 脚本修改接口。
+
+注册表的基线及发布 scope 来自冻结研究；代码 Skill 不能通过资源任务族的
+默认指针被启用。代码工具 v2 对 `write_file` 增加 `expected_sha256`，
+原经验先暂停，再在隔离会话中复验。后续任务在初次任务划分中一并冻结，
+不会与开发、验证或保留集共享问题模板。

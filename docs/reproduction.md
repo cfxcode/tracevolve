@@ -53,3 +53,16 @@ SIGTERM 和终端中断同样会取消子进程，并保存 uncertain 状态及�
 `tests/test_core.py` 的 SyntheticAdapter 明确标记 synthetic，只用于验证控制流程和故障处理。`tests/test_codex_adapter.py` 用 CLI 进程替身验证子进程、超时、事件、个人 Skill 排除与费用语义。实际 MCP server 测试通过标准输入输出通信，不只是直接调用一个模拟函数。
 
 旧版测试在 `vendor/agent_validation_pilot` 原样保留。可安装包的 `_vendor` 副本通过来源清单校验，避免原测试只测到不同于实际导出所用的实现。
+
+
+## 代码维护实验
+
+该任务域的执行与离线产物复验需要 macOS 的 `/usr/bin/sandbox-exec`。
+其他系统会明确失败，不退回到不受限的代码执行。纯控制逻辑测试仍支持 Linux；
+CI 同时运行 Linux 与 macOS，以实际检查沙箱和任务修复。
+
+配置、冻结划分、命令和解释边界见[代码实验协议](code-maintenance-protocol.md)。
+`executions/*/environment_result.json` 包含提交的源码及 SHA-256；
+`code_acceptance.json` 是会话结束后宿主重新执行的验收结果。
+`scripts/audit_resource_runs.py` 会按任务域分派回放，并重新测试代码产物，
+不只检查日志哈希。源码修订后，必须使用研究归档对应的版本执行回放。

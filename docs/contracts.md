@@ -114,3 +114,22 @@ P1a 的 `resource-capacity-v2` 仅将 checked 改为 verified，完整库存契�
 已完成任务重复运行不重复占用。v2 保留分配语义，仅将 checked 改为 verified。
 参考装箱求解器与运行时分离，实际状态回放另外核对 `allocation.py` 的源码哈希。
 完整划分与采集规则见[分配协议](allocation-protocol.md)。
+
+
+## 受控代码维护契约
+
+`task_profile=code-maintenance-v1` 是独立任务域，详见
+[代码实验协议](code-maintenance-protocol.md)。其 envelope 使用
+`identifier_contract=internal-python-module-names`，content 包含 issue、允许的
+Python 文件、入口模块、公开示例和宿主验收用例的哈希；不包含参考答案或其他
+任务的验收数据。划分按不同 issue 模板去重，有限语料不足时显式报错。
+
+`run_tests` 和 `check_examples` 返回通过数、总数及逐项布尔结果，测试失败本身
+不是网关错误；`submit` 仅冻结产物。Codex 会话结束后宿主用独立期待值验收，
+全部通过且实际提交才得 utility=1。代码运行异常是任务失败；宿主验收器故障
+作为基础设施失败，不用于生成 Skill 候选。公开与宿主测试均不能修改。
+
+每个真实代码研究会在首次模型调用前生成 `reference_certificate`。原始缺陷必须
+未通过完整验收，参考修复必须通过，且参考操作数不超工具额度。证书不进入模型
+输入；其物化文件缺失可以恢复、内容冲突则拒绝。代码实验的判断仍只读取固定
+验证证据；`export`/`replay` 不允许将其伪装成资源 v0.2.1 结果。
