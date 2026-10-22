@@ -41,10 +41,9 @@ def serve(root):
         marker.write(now())
     spec = read_json(root / "server_input.json")
     env = ResourceEnvironment(spec["task"], spec["contract"], spec["max_tool_calls"])
-    loaded = False
     cache = {}
     def persist():
-        write_json(root / "environment_result.json", {**env.evaluate(), "loaded": loaded,
+        write_json(root / "environment_result.json", {**env.evaluate(), "loaded": env.loaded,
                                                      "bundle_hash": digest(spec["bundle"])})
     persist()
     for line in sys.stdin:
@@ -60,20 +59,14 @@ def serve(root):
             result = {"tools": tool_specs(spec["contract"])}
         elif method == "tools/call":
             params = request["params"]
-            key = str(request_id)
+            key = digest(request_id)
             if key in cache:
                 if cache[key][0] != digest(params):
                     raise ValueError("request id reused with different arguments")
                 result = cache[key][1]
             else:
                 name, args = params["name"], params.get("arguments", {})
-                if name == "load_bundle" and args == {}:
-                    output = {"bundle": spec["bundle"], "bundle_hash": digest(spec["bundle"])}
-                    loaded = True
-                elif not loaded:
-                    output = {"error": "LOAD_BUNDLE_REQUIRED"}
-                else:
-                    output = env.call(name, args)
+                output = env.call(name, args, bundle=spec["bundle"])
                 append_json(root / "tool_events.jsonl", {"at": now(), "request_id": request_id, "name": name,
                                                          "arguments": args, "output": output})
                 persist()

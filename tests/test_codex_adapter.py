@@ -62,6 +62,20 @@ print(json.dumps({'type':'turn.completed','usage':{'input_tokens':10,'output_tok
         self.assertIsNone(result["cost_usd"])
         self.assertTrue(self.store.verify()["verified"])
 
+    def test_real_subprocess_rotation_survives_timeout(self):
+        adapter = self.adapter("""
+auth = os.path.join(os.environ['CODEX_HOME'], 'auth.json')
+with open(auth, 'w') as f:
+    json.dump({'auth_mode':'chatgpt','tokens':{'test_fixture':'rotated'}}, f)
+time.sleep(10)
+""")
+        result = adapter.infer(store=self.store, logical_id="rotate-timeout", prompt="test", schema=None,
+                               config=replace(self.config, timeout_seconds=1), phase="test")
+        self.assertEqual(result["status"], "uncertain")
+        self.assertEqual(json.loads((self.auth / "auth.json").read_text())["tokens"]["test_fixture"], "rotated")
+        self.assertFalse((self.auth / ".tracevolve-auth/active").exists())
+        self.assertNotIn('test_fixture', json.dumps(result))
+
     def test_timeout_is_uncertain_and_no_automatic_retry(self):
         adapter = self.adapter("time.sleep(10)\n")
         result = adapter.infer(store=self.store, logical_id="timeout", prompt="test", schema=None,

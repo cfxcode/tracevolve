@@ -83,7 +83,7 @@ class SyntheticAdapter:
         if cached:
             return cached
         self.order.append(phase)
-        response = {"eligible": True, "content": "Inspect prerequisites, execute in dependency order, then submit. Scope: resource jobs only.",
+        response = {"eligible": True, "content": "Inspect prerequisites, execute in dependency order, then submit. Scope: resource jobs only. " + logical_id,
                     "hypothesis": "Check prerequisites before submission", "rationale": "Observed failed submission"} if phase == "proposal" else {
                     "accept": True, "estimated_gain": 1., "rationale": "SYNTHETIC TEST DECISION"}
         result = {"run_id": logical_id, "status": "completed", "response": response,
@@ -269,12 +269,12 @@ class StudyTests(unittest.TestCase):
                     for identifier in ids:
                         self.assertFalse(any(label in identifier for label in ("initial", "repeat", "rename", "baseline", "candidate")))
 
-    def test_judge_failure_not_rejection_and_no_heldout(self):
+    def test_judge_failure_not_rejection_and_heldout_still_runs(self):
         adapter = SyntheticAdapter(failure_phase="judgment")
         report = Study(self.store, adapter, self.config).run()
         self.assertFalse(report["data_complete"])
         self.assertEqual(report["stop_reason"], "JUDGE_FAILED")
-        self.assertNotIn("sealed_evaluation", adapter.order)
+        self.assertEqual(adapter.order.count("sealed_evaluation"), 6)
         bank = self.store.get(self.store.state("judgments_sealed"))
         self.assertTrue(all(x["response"] is None for x in bank.values()))
 
@@ -393,7 +393,7 @@ class MCPTests(unittest.TestCase):
                 {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "submit", "arguments": {"goal_ids": task["content"]["goals"]}}}]
             process = subprocess.run([sys.executable, "-m", "tracevolve.task_server", "--root", d],
                 input="\n".join(map(canonical, requests)), capture_output=True, text=True, check=True)
-            self.assertEqual(len(process.stdout.splitlines()), 2)
+            self.assertEqual(len(process.stdout.splitlines()), 1)
             self.assertEqual(read_json(root / "environment_result.json")["tool_calls"], 1)
             self.assertFalse(read_json(root / "environment_result.json")["success"])
 

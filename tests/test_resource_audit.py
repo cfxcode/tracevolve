@@ -19,7 +19,8 @@ class ResourceAuditTests(unittest.TestCase):
         bundle = asdict(Bundle())
         env = ResourceEnvironment(task)
         args = {"goal_ids": task["goals"]}
-        output = env.call("submit", args)
+        env.call("load_bundle", {}, bundle=bundle)
+        output = env.call("submit", args, bundle=bundle)
         request = {"implementation": source_manifest(), "server_input": {"task": task, "bundle": bundle,
                    "contract": tool_contract(), "max_tool_calls": 64}}
         result = {"status": "completed", "evaluation": env.evaluate(), "tool_events": [

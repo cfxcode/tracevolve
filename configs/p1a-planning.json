@@ -1,0 +1,11 @@
+{
+  "study_id": "p1a-planning-001",
+  "phase": "p1a",
+  "task_profile": "planning-v2",
+  "seed": 504501,
+  "max_development_tasks": 4,
+  "max_sessions": 32,
+  "max_tool_calls": 64,
+  "timeout_seconds": 600,
+  "prior_studies": [".tracevolve/difficulty-planning-001"]
+}

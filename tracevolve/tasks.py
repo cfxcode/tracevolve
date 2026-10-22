@@ -44,14 +44,34 @@ class ResourceEnvironment:
         self.calls = 0
         self.errors = 0
         self.max_calls = max_calls
+        self.loaded = False
 
-    def call(self, name, args):
+    def call(self, name, args, *, bundle=None):
+        """Count every unique gateway request, including loading and gate errors.
+
+        The stdio transport deduplicates exact JSON-RPC retries before this call.
+        Direct environment callers may omit bundle to exercise domain actions.
+        """
         self.calls += 1
-        def error(code):
-            self.errors += 1
-            return {"error": code}
         if self.calls > self.max_calls:
-            return error("TOOL_LIMIT")
+            output = {"error": "TOOL_LIMIT"}
+        elif bundle is not None and name == "load_bundle":
+            if args != {}:
+                output = {"error": "INVALID_ARGUMENT"}
+            else:
+                self.loaded = True
+                output = {"bundle": bundle, "bundle_hash": digest(bundle)}
+        elif bundle is not None and not self.loaded:
+            output = {"error": "LOAD_BUNDLE_REQUIRED"}
+        else:
+            output = self._dispatch(name, args)
+        if "error" in output:
+            self.errors += 1
+        return output
+
+    def _dispatch(self, name, args):
+        def error(code):
+            return {"error": code}
         if self.submitted:
             return error("ALREADY_SUBMITTED")
         if not isinstance(args, dict):
@@ -109,14 +129,21 @@ def semantic_identity(task, include_payload=True):
                    "goals": sorted(signature(i) for i in task["goals"])})
 
 
-def generate(seed, source_id, split):
+def generate(seed, source_id, split, profile="basic-v1"):
+    if profile not in ("basic-v1", "planning-v2"):
+        raise ValueError("unknown task profile")
     rng = random.Random(seed)
-    n = rng.randint(8, 16)
+    n = rng.randint(8, 16) if profile == "basic-v1" else rng.randint(26, 30)
     parents = [[], [0], [1]]
     for i in range(3, n):
         parents.append(sorted(rng.sample(range(i), rng.randint(1, min(3, i)))))
     # All goals depend on a path of at least three nodes. Leave a distractor.
     parents[n - 2] = sorted(set(parents[n - 2] + [2]))
+    if profile == "planning-v2":
+        # A long shared prerequisite chain plus cross-branch edges, three goals,
+        # and a distractor. A correct traversal needs <= 2*(n-1)+2 calls.
+        for i in range(1, n - 1):
+            parents[i] = sorted(set(parents[i] + [i - 1]))
     ids_rng = random.Random(seed ^ 0xA57C9)
     ids = []
     while len(ids) < n:
@@ -127,19 +154,19 @@ def generate(seed, source_id, split):
              "payload": {"kind": rng.choice(["prepare", "build", "verify", "publish"]),
                          "requires_check": bool(rng.getrandbits(1))}} for i in range(n)]
     rng.shuffle(jobs)
-    task = {"id": source_id, "jobs": jobs, "goals": [ids[n - 2]]}
+    task = {"id": source_id, "jobs": jobs, "goals": [ids[n - 2]] if profile == "basic-v1" else [ids[n - 4], ids[n - 3], ids[n - 2]]}
     validate(task)
     return envelope(task, source_id, split=split, seed=seed,
                     template_id=semantic_identity(task, False), semantic_hash=semantic_identity(task))
 
 
-def plan_tasks(seed, development, units, heldout, forbidden_templates=()):
+def plan_tasks(seed, development, units, heldout, forbidden_templates=(), profile="basic-v1"):
     seen = set(forbidden_templates)
     result = {"development": [], "validation": [], "sealed_evaluation": []}
     index = 0
     for split, count in [("development", development), ("validation", units), ("sealed_evaluation", units * heldout)]:
         while len(result[split]) < count:
-            task = generate(seed + index, f"root-{seed}-{index}", split)
+            task = generate(seed + index, f"root-{seed}-{index}", split, profile)
             index += 1
             if task["template_id"] in seen:
                 continue

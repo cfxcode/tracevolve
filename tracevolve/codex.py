@@ -14,6 +14,7 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
+from .auth import isolated_auth
 from .contracts import ExecutionSnapshot, frozen_harness
 from .util import canonical, digest, now, read_json, source_manifest, text_hash, write_json
 
@@ -82,7 +83,7 @@ class CodexAdapter:
     def _options(self, config, server_root=None):
         options = ["-m", config.model, "-s", "read-only"]
         values = {"model_reasoning_effort": config.reasoning_effort, "approval_policy": "never",
-                  "forced_login_method": "chatgpt",
+                  "forced_login_method": "chatgpt", "cli_auth_credentials_store": "file",
                   "agents.enabled": False,
                   "project_doc_max_bytes": 0, "web_search": "disabled", "history.persistence": "none",
                   "features.skip_host_skill_discovery": True, "suppress_unstable_features_warning": True}
@@ -122,14 +123,10 @@ class CodexAdapter:
                 raise KeyboardInterrupt("SIGTERM")
             signal.signal(signal.SIGTERM, interrupt)
         try:
-            with tempfile.TemporaryDirectory(prefix="tracevolve-") as tmp:
+            with isolated_auth(config.auth_home) as auth_home, tempfile.TemporaryDirectory(prefix="tracevolve-") as tmp:
                 temp = Path(tmp)
-                auth_home, workspace = temp / "auth", temp / "workspace"
-                auth_home.mkdir(mode=0o700)
+                workspace = temp / "workspace"
                 workspace.mkdir()
-                # Credentials never enter the study, immutable objects, or public repository.
-                shutil.copyfile(Path(config.auth_home).expanduser() / "auth.json", auth_home / "auth.json")
-                (auth_home / "auth.json").chmod(0o600)
                 env = {k: os.environ[k] for k in ("PATH", "HOME", "USER", "TMPDIR", "LANG", "LC_ALL",
                        "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
                        "http_proxy", "https_proxy", "all_proxy", "no_proxy") if k in os.environ}
@@ -177,7 +174,7 @@ class CodexAdapter:
                     if foreign:
                         raise ValueError("unexpected host Skill after explicit exclusion: " + str(foreign[0]))
                 write_json(run_dir / "effective_config.json", effective)
-                normalized = context_text.replace(str(temp), "<ISOLATED_RUN>")
+                normalized = context_text.replace(str(auth_home), "<ISOLATED_AUTH>").replace(str(temp), "<ISOLATED_RUN>")
                 write_json(run_dir / "startup_context.json", {"text": normalized, "sha256": text_hash(normalized),
                            "host_skill_entries": 0, "project_instructions_max_bytes": 0,
                            "task_mcp_omitted_from_instruction_audit": True})

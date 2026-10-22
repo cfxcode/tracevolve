@@ -78,7 +78,7 @@ class Study:
             for tasks in manifest["tasks"].values():
                 forbidden.update(t["template_id"] for t in tasks)
         tasks = plan_tasks(c.seed, c.max_development_tasks, c.target_modifications,
-                           c.heldout_tasks_per_modification, forbidden)
+                           c.heldout_tasks_per_modification, forbidden, c.task_profile)
         frozen = {"identity": identity, "tasks": tasks, "baseline": asdict(self.base), "at": now(),
                   "decision": DECISION, "contract": self.contract,
                   "source_failure_criterion": "completed run with failed submit or at least one erroneous resource action",
@@ -215,7 +215,9 @@ class Study:
     def judge(self, units):
         s = self.store
         if s.state("judgments_sealed"):
-            return s.get(s.state("judgments_sealed"))
+            bank = s.get(s.state("judgments_sealed"))
+            self._materialize_judgments(bank)
+            return bank
         s.set("phase", "JUDGING")
         data = self.data(units)
         settings = pilot.validate_data(data, demo=getattr(self.adapter, "synthetic", False))
@@ -224,7 +226,9 @@ class Study:
             for group in ("A", "B", "C"):
                 events = unit["initial_evidence"] + ([] if group == "A" else unit["extra_" + group])
                 request = pilot.judge_request(unit, events, settings)
-                response = self.adapter.infer(store=s, logical_id=unit["unit_id"] + ":judge:" + group,
+                logical_id = unit["unit_id"] + ":judge:" + group
+                saved = next((c for c in s.calls() if c["id"] == logical_id and c["status"] == "failed"), None)
+                response = s.get(saved["result_hash"]) if saved else self.adapter.infer(store=s, logical_id=logical_id,
                     prompt="Evaluate this frozen modification using only the supplied evidence. No tools are available.\n" + canonical(request),
                     schema=JUDGE_SCHEMA, config=self.config, phase="judgment")
                 value = response.get("response", {})
@@ -238,15 +242,22 @@ class Study:
                          "error": None if valid else response.get("error", "INVALID_JUDGMENT"), "sealed_at": now()}
                 bank[pilot.digest(request)] = entry
         s.set("judgments_sealed", s.put(bank))
-        write_json(s.root / "judgments" / "sealed.json", bank)
+        self._materialize_judgments(bank)
         s.set("phase", "JUDGMENTS_SEALED")
         return bank
+
+    def _materialize_judgments(self, bank):
+        path = self.store.root / "judgments" / "sealed.json"
+        if path.exists():
+            if digest(read_json(path)) != digest(bank):
+                raise ValueError("sealed judgment file differs from immutable evidence")
+        else:
+            write_json(path, bank)
 
     def heldout(self, frozen, units, candidates, bank):
         s = self.store
         if any(entry["response"] is None for entry in bank.values()):
             s.set("stop_reason", "JUDGE_FAILED")
-            return units
         s.set("phase", "EVALUATING")
         h = self.config.heldout_tasks_per_modification
         all_pairs = s.state("heldout_attempts", {})

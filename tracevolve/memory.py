@@ -77,6 +77,8 @@ class Registry:
         s = self.store
         if not maintainer or not maintainer.strip():
             raise ValueError("explicit maintainer identity is required")
+        s.verify()
+        self._verify_candidate(candidate)
         decision = s.state("release_decision", {})
         if not decision.get("publish_eligible") or candidate["id"] != decision.get("candidate"):
             raise ValueError("candidate lacks passing release evidence")
@@ -101,6 +103,8 @@ class Registry:
             raise ValueError("release evidence does not meet the fixed gain policy")
         s.db.execute("BEGIN IMMEDIATE")
         try:
+            s.verify()
+            self._verify_candidate(candidate)
             current = self.pointer()
             if current["generation"] != expected_generation or current["bundle"] != candidate["baseline_hash"]:
                 raise ValueError("stale parent: revalidation required before publication")
@@ -119,6 +123,81 @@ class Registry:
             s.db.rollback()
             raise
         return decision
+
+    def _verify_candidate(self, candidate):
+        """Bind the release to its frozen candidate, judgment and executed pairs."""
+        from .study import DECISION, projection, public_trace
+        from .util import canonical
+        from .legacy import pilot
+        s = self.store
+        frozen = s.get(s.state("candidates_frozen"))
+        if candidate not in frozen or candidate not in s.state("candidates", []):
+            raise ValueError("publication candidate differs from frozen candidate")
+        permit = s.state("permit", {})
+        bundle = Bundle(**candidate["candidate"])
+        if permit.get("bundle_hash") != bundle.hash or permit.get("candidate") != candidate["id"]:
+            raise ValueError("publication bundle differs from permit")
+        unit = next((u for u in s.state("units", []) if u["patch_id"] == candidate["id"]), None)
+        if unit is None:
+            raise ValueError("publication has no validation unit")
+        decision = s.state("release_decision", {})
+        bank = s.get(s.state("judgments_sealed"))
+        entry = next((e for e in bank.values() if e["unit_id"] == unit["unit_id"] and e["group"] == "A"), None)
+        if not entry or decision.get("judgment") != entry["response"]:
+            raise ValueError("release judgment differs from sealed judgment")
+        calls = {c["id"]: c for c in s.calls()}
+        judgment_call = calls.get(entry["run_id"])
+        if not judgment_call or judgment_call["status"] != "completed":
+            raise ValueError("release judgment has no completed call")
+        judgment = s.get(judgment_call["result_hash"])
+        if entry["response"] != {**judgment.get("response", {}), "usage": {"cost_usd": judgment.get("cost_usd")}}:
+            raise ValueError("release judgment differs from executed result")
+        data = {"schema_version": 2, "additional_budget_usd": None,
+                "decision": DECISION,
+                "shared_overheads": {"candidate_generation_usd": None, "calibration_usd": None}, "units": [unit]}
+        settings = pilot.validate_data(data, demo=bool(judgment.get("synthetic")))
+        expected_request = pilot.judge_request(unit, unit["initial_evidence"], settings)
+        if entry["request"] != expected_request or pilot.digest(entry["request"]) not in bank:
+            raise ValueError("sealed judgment request mismatch")
+        judge_input = s.get(judgment_call["request_hash"])
+        if not judge_input.get("prompt", "").endswith(canonical(expected_request)):
+            raise ValueError("judgment call input differs from sealed evidence")
+        expected_refs = [digest(e) for channel in ("initial_evidence", "extra_B", "extra_C") for e in unit[channel]]
+        if decision.get("evidence_refs") != expected_refs:
+            raise ValueError("release evidence missing or inconsistent with validation unit")
+        for key, channel in (("initial", "initial_evidence"), ("repeat", "extra_B"), ("rename", "extra_C")):
+            evidence = unit[channel][0]
+            for side in ("baseline", "candidate"):
+                call_id = unit["unit_id"] + ":" + key + ":" + side
+                call = calls.get(call_id)
+                if not call or call["status"] != "completed":
+                    raise ValueError("release pair has no completed call")
+                result = s.get(call["result_hash"])
+                ref = s.state("run:" + call_id)
+                run = s.get(ref) if ref else result  # Synthetic adapter stores full runs directly.
+                if ref and any(run.get(k) != v for k, v in result.items()):
+                    raise ValueError("run record differs from executed result")
+                if (evidence["observation"][side] != projection(run)
+                        or evidence["observation"]["traces"][side] != public_trace(run)
+                        or run["harness"] != unit["frozen"][side]
+                        or run["task_sha256"] != evidence["task"]["sha256"]):
+                    raise ValueError("release evidence differs from executed pair")
+                snapshot = run["execution_snapshot"]
+                expected_bundle = bundle if side == "candidate" else Bundle()
+                from .contracts import ExecutionSnapshot, frozen_harness
+                if (run["snapshot_hash"] != ExecutionSnapshot(**snapshot).hash
+                        or run["harness"] != frozen_harness(expected_bundle, ExecutionSnapshot(**snapshot))):
+                    raise ValueError("execution snapshot differs from frozen harness")
+                request = s.get(call["request_hash"])
+                task_input = request.get("server_input", request)
+                expected_task = evidence["task"]["content"] if "server_input" in request else evidence["task"]
+                if (task_input.get("bundle") != asdict(expected_bundle) or task_input.get("task") != expected_task
+                        or task_input.get("contract") != snapshot["tool_contract"]):
+                    raise ValueError("execution request differs from release evidence")
+                if snapshot["bundle_hash"] != expected_bundle.hash:
+                    raise ValueError("executed bundle differs from publication bundle")
+                if not run.get("synthetic") and not run.get("load_evidence", {}).get("verified"):
+                    raise ValueError("publication lacks actual loading evidence")
 
     def rollback(self, *, expected_generation, reason):
         s = self.store
@@ -150,9 +229,10 @@ def contract_changed(store, contract):
     changed = [k for k, v in permit["dependencies"].items() if contract.get(k) != v]
     record = {"affected": bool(changed), "changed_dependencies": changed, "previous_status": permit["status"],
               "new_contract": contract, "at": now()}
+    updates = {"contract_change": record}
     if changed:
-        store.set("permit", {**permit, "status": "needs_revalidation", "change": record})
-    store.set("contract_change", record)
+        updates["permit"] = {**permit, "status": "needs_revalidation", "change": record}
+    store.set_many(updates)
     return record
 
 
@@ -170,11 +250,16 @@ def run_followup(study, frozen, candidate):
     if s.state("lifecycle"):
         return s.state("lifecycle")
     # Additional tasks were frozen by seed/rule before any sealed results.
-    task = generate(c.seed + 30000, f"followup-{c.seed}", "post_release")
-    bundle, selection = selected_bundle(s, candidate, study.contract)
+    snapshot = s.state("followup_snapshot")
+    if snapshot is None:
+        task = generate(c.seed + 30000, f"followup-{c.seed}", "post_release", c.task_profile)
+        bundle, selection = selected_bundle(s, candidate, study.contract)
+        snapshot = {"task": task, "bundle": asdict(bundle), "selection": selection}
+        s.set("followup_snapshot", snapshot)
+    task, bundle, selection = snapshot["task"], Bundle(**snapshot["bundle"]), snapshot["selection"]
     first = study._run("p1a-followup", bundle, task, "post_release")
     changed = tool_contract("resource-v2")
-    change = contract_changed(s, changed)
+    change = s.state("contract_change") or contract_changed(s, changed)
     after, check = selected_bundle(s, candidate, changed)
     paused = not check["skill_enabled"]
     # Explicit experiment authorization permits testing the candidate without

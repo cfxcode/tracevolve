@@ -63,9 +63,13 @@ class Store:
         return row
 
     def set(self, key, value):
+        self.set_many({key: value})
+
+    def set_many(self, values):
         with self.db:
-            self.db.execute("INSERT INTO state VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, canonical(value)))
-            self.event("state_changed", {"key": key, "value": value})
+            for key, value in values.items():
+                self.db.execute("INSERT INTO state VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, canonical(value)))
+                self.event("state_changed", {"key": key, "value": value})
 
     def state(self, key, default=None):
         row = self.db.execute("SELECT value FROM state WHERE key=?", (key,)).fetchone()
@@ -112,18 +116,58 @@ class Store:
     def verify(self):
         previous = "0" * 64
         count = 0
+        attempts, states, pointers = {}, {}, {}
         for r in self.db.execute("SELECT * FROM events ORDER BY seq"):
             obj = {"at": r["at"], "kind": r["kind"], "payload": json.loads(r["payload"]), "previous": previous}
             if r["previous"] != previous or digest(obj) != r["hash"]:
                 raise ValueError("audit chain corrupted")
             previous = r["hash"]
             count += 1
+            payload = obj["payload"]
+            if r["kind"] == "request_started":
+                call_id = payload["call_id"]
+                if call_id in attempts:
+                    raise ValueError("duplicate request start in audit")
+                attempts[call_id] = {"id": call_id, "phase": payload["phase"],
+                    "request_hash": payload["request_hash"], "status": "started", "result_hash": None}
+            elif r["kind"] == "request_finished":
+                attempt = attempts.get(payload["call_id"])
+                if not attempt or attempt["status"] != "started" or payload["status"] not in ("completed", "failed", "uncertain"):
+                    raise ValueError("invalid request finish in audit")
+                attempt.update(status=payload["status"], result_hash=payload["result_hash"])
+            elif r["kind"] == "state_changed":
+                states[payload["key"]] = payload["value"]
+            elif r["kind"] == "published":
+                states["release_decision"] = payload
+                states["permit"] = {**states["permit"], "status": "active", "maintainer": payload["maintainer"]}
+                parent = payload["parent"]
+                pointers[parent["scope"]] = {"scope": parent["scope"], "bundle": states["permit"]["bundle_hash"],
+                                             "generation": parent["generation"] + 1}
+            elif r["kind"] == "rollback":
+                parent = payload["from"]
+                pointers[parent["scope"]] = {"scope": parent["scope"], "bundle": payload["to"], "generation": parent["generation"] + 1}
+                if "permit" in states:
+                    states["permit"] = {**states["permit"], "status": "suspended", "reason": "rollback"}
+        actual_states = {r["key"]: json.loads(r["value"]) for r in self.db.execute("SELECT * FROM state")}
+        if canonical(actual_states) != canonical(states):
+            raise ValueError("state differs from audit events")
+        actual_pointers = {r["scope"]: dict(r) for r in self.db.execute("SELECT * FROM pointers")}
+        if actual_pointers != pointers:
+            raise ValueError("publication pointers differ from audit events")
+        calls = self.calls()
+        if {c["id"] for c in calls} != set(attempts):
+            raise ValueError("call ledger differs from audit events")
+        for call in calls:
+            if any(call[k] != v for k, v in attempts[call["id"]].items()):
+                raise ValueError("call ledger differs from audit events")
         for p in (self.root / "objects").glob("*.json"):
             self.get(p.stem)
         for call in self.calls():
             self.get(call["request_hash"])
             if call["result_hash"]:
                 result = self.get(call["result_hash"])
+                if result["status"] != call["status"] or result.get("run_id", call["id"]) != call["id"]:
+                    raise ValueError("call result differs from ledger")
                 from .util import text_hash
                 for path, expected in result.get("raw_files", {}).items():
                     resolved = (self.root / path).resolve()

@@ -2,7 +2,7 @@
 
 ## 配置
 
-三个可直接使用的配置在 `configs/`。未知字段会被拒绝；数量、时间和工具调用上限必须为正整数。首期只接受 `billing_mode=chatgpt_subscription`、`phase=p0|p1a`，候选上限为 5，P1a 每轮仅 1 个候选。认证目录默认 `~/.codex`，不进入公开配置快照。
+可直接使用的配置在 `configs/`。未知字段会被拒绝；数量、时间和工具调用上限必须为正整数。首期只接受 `billing_mode=chatgpt_subscription`、`phase=p0|p1a`，候选上限为 5，P1a 每轮仅 1 个候选。认证目录默认 `~/.codex`，不进入公开配置快照。
 
 计划以 `study_id`、随机种子、预定规模和运行限制冻结。`prior_studies` 用于排除之前研究已见的任务模板。不同 study_id 本身不能证明任务独立。
 
@@ -51,3 +51,26 @@ P1a 许可包含具体 Skill/Bundle、任务族、工具依赖、支持证据及
 网络执行前在 SQLite 中预留唯一 logical_call_id、请求内容哈希和 started 记录。完成后写不可变结果并追加终态。重复读取 completed 请求不会再次调用；请求内容变化、失败重试或未核对的 started/uncertain 状态会拒绝继续。
 
 SQLite 的事件表禁止 UPDATE/DELETE，事件按前一哈希串联；对象和原始文件有内容哈希。此机制用于一致性审计，并不防止有完全机器权限的人重建整套日志。
+
+
+## 2026-10-22 审查修复后的约束
+
+- 工具额度按网关唯一请求计数，包含每次 `load_bundle`、加载前动作和非法加载参数；所有错误进入 `tool_errors`。相同 JSON-RPC ID 和参数的传输重试复用回包，不重复计数。达到上限后关闭本次工具进程。初始化、工具枚举和 ping 不计任务额度。
+- 判断器失败仍封存为失败，不转换为拒绝；所有可执行候选仍完成预定保留集。报告保持 `data_complete=false`。恢复可读取已失败判断的原结果，但不会重发请求；未核对的 started/uncertain 仍阻止新调用。
+- `judgments/sealed.json` 缺失时由不可变判断对象恢复；文件存在但内容不符则拒绝覆盖。后续任务的 Bundle、任务和选择依据在首次执行前冻结，契约变化后恢复不重新选择历史请求的 Bundle。
+- `verify` 将请求开始/结束事件与调用表、结果状态逐项比对，并核对状态表、发布指针与事件；仍检查全部对象和原始文件。`publish` 在事务内再次校验，并将冻结候选、许可、判断请求/结果、配对执行及实际加载证据连接到同一发布对象。哈希一致不代表远端执行的独立认证。
+- 认证租约目录为认证根下的 `.tracevolve-auth/active`，权限 0700，文件 0600；从不进入研究目录。TraceVolve 会话互斥使用同一登录。退出与取消时回写刷新结果；异常进程退出后，下一次租约先恢复。若原登录已由外部进程改变，则保留双方并报 `AUTH_REFRESH_CONFLICT`，不自动覆盖。外部 Codex 不参与租约锁，检测与替换之间不能提供跨客户端事务保证，实验期间应避免同时对该登录进行刷新/切换。
+
+认证存储方式依据 [OpenAI 认证文档](https://learn.chatgpt.com/docs/auth)；冲突处理是 TraceVolve 自身的实现约束，不是 Codex 提供的事务保证。
+
+## 独立任务难度校准
+
+`task_profile=basic-v1` 保留原任务生成规则。`planning-v2` 使用 26–30 个节点、共享前置链与交叉依赖、3 个目标及干扰节点；资源工具语义、基线 Prompt 和评分保持不变。离线参考解需要 52–60 次完整网关调用，额度仍为 64；模型冗余调用可能耗尽额度。
+
+`configs/calibration-planning.json` 只安排 3 次基线会话，每次最多 600 秒。校准不生成候选。正式配置 `configs/p1a-planning.json` 使用独立种子，排除校准所有任务模板，开发扫描上限 4、会话上限 32。校准、正式实验均新建研究，不修改 2026-10-21 记录。
+
+```bash
+python3 scripts/calibrate_tasks.py --config configs/calibration-planning.json --study .tracevolve/difficulty-planning-001
+# 校准完成并检查代表性后，才启动独立正式研究：
+python3 -m tracevolve run --config configs/p1a-planning.json --study .tracevolve/p1a-planning-001
+```

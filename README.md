@@ -30,7 +30,7 @@ python3 -m tracevolve export --study .tracevolve/p0-smoke-001
 python3 -m tracevolve replay --study .tracevolve/p0-smoke-001
 ```
 
-The smoke study targets 1 naturally collected candidate and 3 held-out task pairs. It scans at most 6 development tasks and allows at most 32 CLI session attempts across the study. Each execution is limited to 64 resource tool calls and 300 seconds. A completed development run with a failed tool action also counts as an observable development problem. Infrastructure failures are not treated as prompt defects for candidate generation.
+The smoke study targets 1 naturally collected candidate and 3 held-out task pairs. It scans at most 6 development tasks and allows at most 32 CLI session attempts across the study. Each execution is limited to 64 gateway tool calls (including `load_bundle` and loading errors) and 300 seconds. A completed development run with a failed tool action also counts as an observable development problem. Infrastructure failures are not treated as prompt defects for candidate generation.
 
 Each candidate undergoes 6 validation executions across A/B/C: A is the initial pair, B repeats the pairing on the original task, and C pairs runs on the same bijectively renamed task. Held-out evaluation starts only after all judgments are sealed. Frozen settings are recorded in `manifest.json`.
 
@@ -75,7 +75,7 @@ Release pointers and permissions are checked against the parent version, scope, 
 
 ## Authentication, isolation, and costs
 
-- Only existing ChatGPT authentication is reused. Each run copies the authentication file into a restricted temporary directory and removes it afterward. Credentials are never stored in the study directory or Git. API key environment variables are not passed to child processes.
+- Only existing ChatGPT authentication is reused. Each run leases a restricted isolated directory under the authentication home, preserves refreshed credentials, and removes the directory after reconciliation. Concurrent login changes retain both versions and stop execution for manual reconciliation. Credentials are never stored in the study directory or Git. API key environment variables are not passed to child processes.
 - Each role uses a fresh session, an independent workspace, and a temporary Codex configuration directory. Personal configuration and rules are excluded; plugins, memory, shell, browser, and sub-agents are disabled. Required system proxy settings are preserved.
 - Before execution, `codex debug prompt-input` checks the context. External personal Skills are explicitly disabled and the context is checked again; execution stops if any remain. Codex's built-in system instructions and system Skill metadata are part of the fixed runtime, and context records are retained.
 - Execution agents receive only the resource MCP tools for their run. Proposers and judges have no resource MCP registration, shell access, or file-reading entry point. They receive only the selected development or validation inputs. Held-out data never enters judgment requests.

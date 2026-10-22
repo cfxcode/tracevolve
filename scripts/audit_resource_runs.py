@@ -19,19 +19,12 @@ def replay_run(request, result):
     if request["implementation"]["tasks.py"] != text_hash(Path(tasks.__file__).read_text()):
         raise ValueError("environment source differs: use the archived source version to audit")
     env = tasks.ResourceEnvironment(spec["task"], spec["contract"], spec["max_tool_calls"])
-    loaded = False
     for event in result["tool_events"]:
         name, args = event["name"], event["arguments"]
-        if name == "load_bundle" and args == {}:
-            expected = {"bundle": spec["bundle"], "bundle_hash": digest(spec["bundle"])}
-            loaded = True
-        elif not loaded:
-            expected = {"error": "LOAD_BUNDLE_REQUIRED"}
-        else:
-            expected = env.call(name, args)
+        expected = env.call(name, args, bundle=spec["bundle"])
         if canonical(expected) != canonical(event["output"]):
             raise ValueError("tool response is inconsistent with deterministic state transitions")
-    if not loaded:
+    if not env.loaded:
         raise ValueError("completed resource run has no loading receipt")
     expected = env.evaluate()
     observed = {key: result["evaluation"][key] for key in expected}
