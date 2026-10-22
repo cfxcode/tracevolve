@@ -77,34 +77,32 @@ class Registry:
         s = self.store
         if not maintainer or not maintainer.strip():
             raise ValueError("explicit maintainer identity is required")
-        s.verify()
-        self._verify_candidate(candidate)
-        decision = s.state("release_decision", {})
-        if not decision.get("publish_eligible") or candidate["id"] != decision.get("candidate"):
-            raise ValueError("candidate lacks passing release evidence")
-        permit = s.state("permit")
-        if not permit or permit["status"] != "pending_validation":
-            raise ValueError("permit is not pending approval")
-        refs = decision.get("evidence_refs", [])
-        if (not refs or refs != permit.get("supporting_evidence")
-                or decision.get("judgment", {}).get("accept") is not True
-                or not decision.get("hard_checks") or not all(decision["hard_checks"].values())):
-            raise ValueError("release evidence/constraints are missing or inconsistent")
-        gains = []
-        for ref in refs:
-            evidence = s.get(ref)
-            if evidence.get("valid") is not True or evidence.get("status") != "completed":
-                raise ValueError("incomplete release evidence")
-            observed = evidence["observation"]
-            if any(observed[side].get("status") != "completed" for side in ("baseline", "candidate")):
-                raise ValueError("incomplete release pair")
-            gains.append(observed["candidate"]["utility"] - observed["baseline"]["utility"])
-        if any(g < 0 for g in gains) or sum(gains) / len(gains) < .05:
-            raise ValueError("release evidence does not meet the fixed gain policy")
         s.db.execute("BEGIN IMMEDIATE")
         try:
             s.verify()
             self._verify_candidate(candidate)
+            decision = s.state("release_decision", {})
+            if not decision.get("publish_eligible") or candidate["id"] != decision.get("candidate"):
+                raise ValueError("candidate lacks passing release evidence")
+            permit = s.state("permit")
+            if not permit or permit["status"] != "pending_validation":
+                raise ValueError("permit is not pending approval")
+            refs = decision.get("evidence_refs", [])
+            if (not refs or refs != permit.get("supporting_evidence")
+                    or decision.get("judgment", {}).get("accept") is not True
+                    or not decision.get("hard_checks") or not all(decision["hard_checks"].values())):
+                raise ValueError("release evidence/constraints are missing or inconsistent")
+            gains = []
+            for ref in refs:
+                evidence = s.get(ref)
+                if evidence.get("valid") is not True or evidence.get("status") != "completed":
+                    raise ValueError("incomplete release evidence")
+                observed = evidence["observation"]
+                if any(observed[side].get("status") != "completed" for side in ("baseline", "candidate")):
+                    raise ValueError("incomplete release pair")
+                gains.append(observed["candidate"]["utility"] - observed["baseline"]["utility"])
+            if any(g < 0 for g in gains) or sum(gains) / len(gains) < .05:
+                raise ValueError("release evidence does not meet the fixed gain policy")
             current = self.pointer()
             if current["generation"] != expected_generation or current["bundle"] != candidate["baseline_hash"]:
                 raise ValueError("stale parent: revalidation required before publication")

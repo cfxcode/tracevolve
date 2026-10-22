@@ -55,6 +55,7 @@ class Study:
             frozen = s.get(existing)
             if digest(frozen["identity"]) != digest(identity):
                 raise ValueError("FROZEN_STUDY_DRIFT: use a new study after code, runtime or config changes")
+            self._materialize_manifest(frozen)
             return frozen
         self.adapter.preflight(c)
         code_root = Path(__file__).parent
@@ -87,9 +88,17 @@ class Study:
                   "provider_retry_visibility": "CLI internal requests/retries not fully exposed",
                   "phase": c.phase}
         s.set("frozen", s.put(frozen))
-        write_json(s.root / "manifest.json", frozen)
+        self._materialize_manifest(frozen)
         s.set("phase", "FROZEN")
         return frozen
+
+    def _materialize_manifest(self, frozen):
+        path = self.store.root / "manifest.json"
+        if path.exists():
+            if digest(read_json(path)) != digest(frozen):
+                raise ValueError("manifest file differs from immutable frozen study")
+        else:
+            write_json(path, frozen)
 
     def _run(self, logical_id, bundle, task, phase, contract=None):
         print(canonical({"event": "execute", "id": logical_id, "phase": phase}), flush=True)

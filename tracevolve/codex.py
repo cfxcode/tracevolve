@@ -116,6 +116,7 @@ class CodexAdapter:
                    "billing_mode": "chatgpt_subscription", "usage": None,
                    "execution_origin": "live_model", "synthetic": False, "events": [], "tool_events": []}
         interruption = None
+        auth_fds, auth_cleanup_errors = [], []
         previous_sigterm = None
         if threading.current_thread() is threading.main_thread():
             previous_sigterm = signal.getsignal(signal.SIGTERM)
@@ -123,7 +124,7 @@ class CodexAdapter:
                 raise KeyboardInterrupt("SIGTERM")
             signal.signal(signal.SIGTERM, interrupt)
         try:
-            with isolated_auth(config.auth_home) as auth_home, tempfile.TemporaryDirectory(prefix="tracevolve-") as tmp:
+            with isolated_auth(config.auth_home, child_fds=auth_fds, cleanup_errors=auth_cleanup_errors) as auth_home, tempfile.TemporaryDirectory(prefix="tracevolve-") as tmp:
                 temp = Path(tmp)
                 workspace = temp / "workspace"
                 workspace.mkdir()
@@ -143,7 +144,7 @@ class CodexAdapter:
                 # task server out of this instruction audit. It must start once,
                 # only when exec begins; it contributes no startup instructions.
                 audit = subprocess.run([self.executable, "debug", "prompt-input", *audit_options],
-                                       env=env, cwd=workspace, capture_output=True, text=True, timeout=30)
+                                       env=env, cwd=workspace, capture_output=True, text=True, timeout=30, pass_fds=tuple(auth_fds))
                 if audit.returncode:
                     raise ValueError("startup context audit failed: " + audit.stderr[:300])
                 def inspect_context(raw):
@@ -167,7 +168,7 @@ class CodexAdapter:
                     audit_options.extend(["-c", "skills.config=" + inline])
                     effective["skills.config"] = [{"path": p, "enabled": False} for p in disabled]
                     audit = subprocess.run([self.executable, "debug", "prompt-input", *audit_options],
-                                           env=env, cwd=workspace, capture_output=True, text=True, timeout=30)
+                                           env=env, cwd=workspace, capture_output=True, text=True, timeout=30, pass_fds=tuple(auth_fds))
                     if audit.returncode:
                         raise ValueError("context exclusion audit failed: " + audit.stderr[:300])
                     context_text, foreign = inspect_context(audit.stdout)
@@ -189,7 +190,8 @@ class CodexAdapter:
                                                      "workspace_initially_empty": True, "at": now()})
                 with (run_dir / "stdout.jsonl").open("w") as stdout, (run_dir / "stderr.txt").open("w") as stderr:
                     self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=stdout, stderr=stderr,
-                                                    text=True, env=env, cwd=workspace, start_new_session=True)
+                                                    text=True, env=env, cwd=workspace, start_new_session=True,
+                                                    pass_fds=tuple(auth_fds))
                     try:
                         self.process.communicate(prompt, timeout=config.timeout_seconds)
                     except subprocess.TimeoutExpired:
@@ -208,7 +210,7 @@ class CodexAdapter:
                     except json.JSONDecodeError:
                         parse_errors.append(line)
                 if parse_errors:
-                    outcome["error"] = "MALFORMED_EVENT_STREAM"
+                    outcome.setdefault("error", "MALFORMED_EVENT_STREAM")
                     outcome["malformed_lines"] = parse_errors
                 events = outcome["events"]
                 for event in events:
@@ -218,11 +220,12 @@ class CodexAdapter:
                         outcome["usage"] = event.get("usage")
                     if event.get("type") == "item.completed" and event.get("item", {}).get("type") == "agent_message":
                         outcome["text"] = event["item"].get("text", "")
-                forbidden = [e for e in events if e.get("item", {}).get("type") in ("command_execution", "file_change", "web_search", "collab_agent_tool_call")
+                forbidden = [e for e in events if e.get("item", {}).get("type") in ("command_execution", "file_change", "web_search", "collab_agent_tool_call", "collab_tool_call")
                              or (e.get("item", {}).get("type") == "mcp_tool_call" and
                                  (not server_input or e["item"].get("server") != "resources"))]
                 if forbidden:
-                    outcome["error"] = "UNEXPECTED_TOOL_CAPABILITY"
+                    outcome.setdefault("error", "UNEXPECTED_TOOL_CAPABILITY")
+                    outcome["capability_violations"] = forbidden
                 if not outcome.get("error") and outcome["returncode"] == 0 and any(e.get("type") == "turn.completed" for e in events):
                     outcome["status"] = "completed"
                 else:
@@ -233,7 +236,11 @@ class CodexAdapter:
                     except json.JSONDecodeError:
                         outcome.update(status="failed", error="INVALID_JSON_RESPONSE")
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
-            outcome.update(status="failed", error=type(exc).__name__ + ": " + str(exc))
+            detail = type(exc).__name__ + ": " + str(exc)
+            if outcome["status"] == "uncertain":
+                outcome.setdefault("secondary_errors", []).append(detail)
+            else:
+                outcome.update(status="failed", error=detail)
         except (KeyboardInterrupt, SystemExit) as exc:
             outcome.update(status="uncertain", error="CANCELLED")
             interruption = exc
@@ -241,6 +248,8 @@ class CodexAdapter:
             self.cancel()
             if previous_sigterm is not None:
                 signal.signal(signal.SIGTERM, previous_sigterm)
+        if auth_cleanup_errors:
+            outcome["auth_cleanup_errors"] = auth_cleanup_errors
         outcome["elapsed_seconds"] = time.monotonic() - start
         if (run_dir / "tool_events.jsonl").exists():
             outcome["tool_events"] = [json.loads(s) for s in (run_dir / "tool_events.jsonl").read_text().splitlines()]

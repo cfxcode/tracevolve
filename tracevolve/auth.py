@@ -66,7 +66,15 @@ def _reconcile(source, active):
 
 
 @contextmanager
-def isolated_auth(auth_home):
+def isolated_auth(auth_home, *, child_fds=None, cleanup_errors=None):
+    """Lease one auth home; subprocess callers must pass child_fds via pass_fds.
+
+    flock belongs to the shared open file description. A child inheriting the
+    descriptor retains the lease even if its host dies via SIGKILL. Do not use
+    LOCK_UN on exit: closing the host's descriptor must not unlock a live child.
+    cleanup_errors lets the execution adapter record cleanup failures separately
+    without replacing an execution exception or uncertain outcome.
+    """
     source = Path(auth_home).expanduser().resolve() / "auth.json"
     private = source.parent / ".tracevolve-auth"
     private.mkdir(mode=0o700, exist_ok=True)
@@ -86,7 +94,17 @@ def isolated_auth(auth_home):
         active.mkdir(mode=0o700)
         _atomic(active / "baseline.sha256", _hash(original).encode())
         _atomic(active / "auth.json", original)
+        if child_fds is not None:
+            child_fds.append(lock.fileno())
         try:
             yield active
         finally:
-            _reconcile(source, active)
+            try:
+                _reconcile(source, active)
+            except (OSError, ValueError) as exc:
+                if cleanup_errors is None:
+                    raise
+                cleanup_errors.append(type(exc).__name__ + ": " + str(exc))
+            finally:
+                if child_fds is not None:
+                    child_fds.remove(lock.fileno())

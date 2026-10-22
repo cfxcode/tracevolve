@@ -114,6 +114,15 @@ class Store:
         return [dict(r) for r in self.db.execute("SELECT * FROM calls ORDER BY rowid")]
 
     def verify(self):
+        # A savepoint owns a read transaction when called standalone, and nests
+        # inside publish's write transaction without committing or rolling it back.
+        self.db.execute("SAVEPOINT tracevolve_verify")
+        try:
+            return self._verify_snapshot()
+        finally:
+            self.db.execute("RELEASE SAVEPOINT tracevolve_verify")
+
+    def _verify_snapshot(self):
         previous = "0" * 64
         count = 0
         attempts, states, pointers = {}, {}, {}

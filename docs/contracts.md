@@ -74,3 +74,12 @@ python3 scripts/calibrate_tasks.py --config configs/calibration-planning.json --
 # 校准完成并检查代表性后，才启动独立正式研究：
 python3 -m tracevolve run --config configs/p1a-planning.json --study .tracevolve/p1a-planning-001
 ```
+
+## 7229a9b 复查后的并发与恢复约束
+
+- Codex 执行进程与两次可能的启动上下文审计进程均通过 `pass_fds` 继承认证租约的文件描述符。POSIX `flock` 随共享描述符存活；宿主被 SIGKILL 后，存活子进程继续持锁。其他研究返回 `AUTH_IN_USE`，不能回收或重用 `active`；持锁子进程退出后，下一次租约才核对凭据并回收。退出时不显式 `LOCK_UN`，以免解除子进程仍在持有的锁。
+- 认证清理失败单独记录为 `auth_cleanup_errors`。超时保持 `uncertain / EXECUTION_TIMEOUT`，取消保持 `uncertain / CANCELLED`；解析或能力检查的后续错误也不覆盖原超时原因。不确定调用仍阻止后续预留。
+- 已冻结研究恢复时，缺失的 `manifest.json` 由不可变冻结对象重建；已存在但内容不符时拒绝覆盖。恢复后的 manifest 可继续用作 `prior_studies` 的来源。
+- 发布从 `BEGIN IMMEDIATE` 开始，许可、判断、证据、候选与父版本的全部检查和状态更新处于同一写事务。已经变成 `needs_revalidation` 的许可不能因旧的事务外读取而重新激活。
+- `verify()` 使用 SQLite savepoint 保持一致读取快照；在发布等已有事务中调用时不提交或回滚调用者的事务。正常并发追加事件、更新状态或完成请求不会造成旧事件与新状态混读。
+- `collab_tool_call` 与兼容的 `collab_agent_tool_call` 均判为越界能力，保留 `capability_violations`，不允许作为成功执行。这是审计防线，不是历史真实运行调用了子 Agent 的证据。
