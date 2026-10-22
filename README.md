@@ -88,6 +88,29 @@ Latest evidence: all six calibration/development runs succeeded with zero agent 
 
 Calibration is capped at two baseline sessions. The formal configuration allows four development tasks and at most 32 sessions. Both retain the normal baseline and binary task-success score; no improvement is assumed.
 
+## Shared-resource planning
+
+The `capacity-v1` profile adds finite inventories and irreversible consumption/
+production to the existing resource task domain. All constraints are public.
+A locally legal job order can prevent completion, so dependency traversal alone
+is insufficient. The baseline Prompt, model, binary success score and 64-call
+limit are unchanged. See the [frozen protocol](docs/capacity-protocol.md).
+
+Before live collection, certify every frozen task with an independent offline
+solver. Its schedules stay outside all model inputs:
+
+```bash
+python3 scripts/certify_capacity.py --config configs/calibration-capacity.json --study .tracevolve/difficulty-capacity-001
+python3 scripts/calibrate_tasks.py --config configs/calibration-capacity.json --study .tracevolve/difficulty-capacity-001
+python3 scripts/audit_resource_runs.py --study .tracevolve/difficulty-capacity-001
+```
+
+Formal configurations are `configs/p0-capacity-smoke.json`,
+`configs/p1a-capacity.json`, and `configs/p0-capacity-pilot.json`, in that order.
+Certify each with its own study path before `tracevolve run`. Prior-study
+exclusions preserve separate task templates. For a new replication, use new
+study paths and update `prior_studies`; never overwrite a frozen study.
+
 ## Authentication, isolation, and costs
 
 - Only existing ChatGPT authentication is reused. Each run leases a restricted isolated directory under the authentication home, preserves refreshed credentials, and removes the directory after reconciliation. Concurrent login changes retain both versions and stop execution for manual reconciliation. Credentials are never stored in the study directory or Git. API key environment variables are not passed to child processes.

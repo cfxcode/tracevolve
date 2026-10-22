@@ -1,0 +1,11 @@
+{
+  "study_id": "p0-capacity-pilot-001",
+  "phase": "p0",
+  "task_profile": "capacity-v1",
+  "seed": 1104501,
+  "target_modifications": 5,
+  "heldout_tasks_per_modification": 5,
+  "max_development_tasks": 24,
+  "max_sessions": 160,
+  "prior_studies": [".tracevolve/difficulty-capacity-001", ".tracevolve/p0-capacity-smoke-001", ".tracevolve/p1a-capacity-001"]
+}

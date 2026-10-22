@@ -31,12 +31,14 @@ class Config:
         for name in ["target_modifications", "heldout_tasks_per_modification", "max_development_tasks", "max_sessions", "timeout_seconds", "max_tool_calls", "seed"]:
             if type(getattr(self, name)) is not int or getattr(self, name) < 1:
                 raise ValueError(name + " must be a positive integer")
-        if self.task_profile not in ("basic-v1", "planning-v2", "recovery-v1"):
+        if self.task_profile not in ("basic-v1", "planning-v2", "recovery-v1", "capacity-v1"):
             raise ValueError("unknown task profile")
         if self.task_profile == "planning-v2" and self.max_tool_calls < 60:
             raise ValueError("planning-v2 requires at least 60 gateway calls for guaranteed solvability")
         if self.task_profile == "recovery-v1" and self.max_tool_calls < 51:
             raise ValueError("recovery-v1 needs at least 51 gateway calls for reference solvability")
+        if self.task_profile == "capacity-v1" and self.max_tool_calls < 53:
+            raise ValueError("capacity-v1 needs at least 53 gateway calls for reference solvability")
         if self.target_modifications > 5:
             raise ValueError("this release is limited to five-candidate pilots")
         if self.phase == "p1a" and self.target_modifications != 1:

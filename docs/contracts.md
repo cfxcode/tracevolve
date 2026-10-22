@@ -90,3 +90,16 @@ python3 -m tracevolve run --config configs/p1a-planning.json --study .tracevolve
 `task_profile=recovery-v1` 的完整行为与采集判据见 [恢复协议](recovery-protocol.md)。这是原资源任务域内的新契约；需要一次性校验凭据，并显式区分 `environment_faults` 与 `agent_errors`。预设环境故障不作为 Agent 缺陷；既有 basic/planning 的错误口径保持原样。
 
 该配置冻结 `resource-recovery-v1`；P1a 后续契约变化使用 `resource-recovery-v2`，继续保留凭据与故障恢复规则，仅改变 checked 模式名称。新许可绑定完整工具契约，包含凭据有效期及重复执行规则，不仅绑定版本名称。
+
+
+## 共享库存契约
+
+`capacity-v1` 使用 `resource-capacity-v1`，保留原有五个 MCP 操作。`list_jobs`
+增加四维库存的容量、初始值和当前值；`inspect_job` 提供 `consumes` / `produces`。
+`run_job` 先检查依赖和模式，再原子检查输入库存及最终容量；失败不改变库存或完成集。
+成功执行不可撤销，已完成任务重复执行不再次消耗或产出。`submit` 的成功标准不变。
+P1a 的 `resource-capacity-v2` 仅将 checked 改为 verified，完整库存契约继续绑定许可。
+
+离线 `scripts/solve_capacity.py` 按已完成任务集合搜索可行顺序，不读取生成器内部顺序，
+也不会被执行或提案会话加载。`scripts/certify_capacity.py` 在真实调用前冻结研究并保存
+全部任务的可解证书；P1a 另覆盖固定的后续／复验任务。详见[采集协议](capacity-protocol.md)。

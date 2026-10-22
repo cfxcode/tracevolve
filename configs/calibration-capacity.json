@@ -1,0 +1,10 @@
+{
+  "study_id": "difficulty-capacity-001",
+  "phase": "p0",
+  "task_profile": "capacity-v1",
+  "seed": 804501,
+  "max_development_tasks": 2,
+  "max_sessions": 2,
+  "max_tool_calls": 64,
+  "timeout_seconds": 300
+}

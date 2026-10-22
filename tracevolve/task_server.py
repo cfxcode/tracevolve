@@ -27,6 +27,14 @@ def tool_specs(contract):
         {"name": "run_job", "description": f"Execute a job once prerequisites are done. requires_check=true requires mode {contract['checked_mode']}; false requires standard. Errors never mutate state.", "inputSchema": schema({"job_id": string, "mode": {"type": "string", "enum": [contract["checked_mode"], "standard"]}})},
         {"name": "submit", "description": "Submit exactly the public goal IDs after completing them. No duplicate IDs.", "inputSchema": schema({"goal_ids": {"type": "array", "items": string}})},
     ]
+    if contract.get("shared_inventory"):
+        specs[1]["description"] += " Also read shared inventory capacity, initial and current available vectors."
+        specs[2]["description"] += " Read consumes/produces vectors for the shared inventory."
+        specs[3]["description"] += (
+            " Atomically consume inputs then produce outputs; inputs must be available and final stock must fit capacity."
+            " Successful actions are irreversible. A locally legal order may leave goals unreachable;"
+            " plan across all remaining jobs using the public resource effects before committing."
+            " Completed jobs are idempotent and do not repeat inventory effects.")
     if contract.get("check_receipt_required"):
         specs[2]["description"] += " Confirm status after OUTCOME_UNKNOWN before retrying; completed jobs must not be rerun."
         specs[3] = {"name": "run_job", "description": (

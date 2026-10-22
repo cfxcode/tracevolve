@@ -22,6 +22,10 @@ def replay_run(request, result):
         from tracevolve import recovery
         if request["implementation"].get("recovery.py") != text_hash(Path(recovery.__file__).read_text()):
             raise ValueError("recovery source differs: use the archived source version to audit")
+    if spec["contract"].get("shared_inventory"):
+        from tracevolve import capacity
+        if request["implementation"].get("capacity.py") != text_hash(Path(capacity.__file__).read_text()):
+            raise ValueError("capacity source differs: use the archived source version to audit")
     env = tasks.create_environment(spec["task"], spec["contract"], spec["max_tool_calls"])
     for event in result["tool_events"]:
         name, args = event["name"], event["arguments"]

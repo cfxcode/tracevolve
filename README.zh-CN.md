@@ -88,6 +88,24 @@ python3 -m tracevolve run --config configs/p1a-recovery.json --study .tracevolve
 
 校准最多两个基线会话；正式配置最多四个开发任务、32 次会话。两者保持正常基线和二元任务成功评分，不预设修改一定有效。
 
+## 共享资源规划
+
+`capacity-v1` 在原资源任务域加入有限库存和不可逆的消耗／产出，所有约束均公开。
+局部合法的执行顺序可能使后续目标无法完成，仅按依赖遍历不足以解决任务。
+基线 Prompt、模型、二元成功评分和 64 次调用额度保持不变，详见[冻结协议](docs/capacity-protocol.md)。
+
+真实执行前，使用独立离线求解器认证全部冻结任务可解；参考执行顺序不进入任何模型输入：
+
+```bash
+python3 scripts/certify_capacity.py --config configs/calibration-capacity.json --study .tracevolve/difficulty-capacity-001
+python3 scripts/calibrate_tasks.py --config configs/calibration-capacity.json --study .tracevolve/difficulty-capacity-001
+python3 scripts/audit_resource_runs.py --study .tracevolve/difficulty-capacity-001
+```
+
+正式配置依次为 `configs/p0-capacity-smoke.json`、`configs/p1a-capacity.json`、
+`configs/p0-capacity-pilot.json`。对各自研究目录先认证，再执行 `tracevolve run`。
+前序研究排除规则保持任务模板隔离。重新复现应使用新目录并更新 `prior_studies`，不能覆盖冻结研究。
+
 ## 认证、隔离和费用
 
 - 只复用已有 ChatGPT 登录。每次运行在认证目录下租用权限受限的隔离目录，保留刷新后的凭据并在核对回写后清理；若检测到并发登录变化，则保留两份凭据并停止，等待人工核对；不会将其存入研究目录或 Git。API key 环境变量不传入子进程。
