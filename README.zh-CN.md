@@ -84,6 +84,8 @@ python3 scripts/audit_resource_runs.py --study .tracevolve/difficulty-recovery-0
 python3 -m tracevolve run --config configs/p1a-recovery.json --study .tracevolve/p1a-recovery-001
 ```
 
+最新证据：六次校准／开发执行全部成功，Agent 处理错误为零；尚无自然候选或真实优化收益。详见[恢复任务验收](docs/recovery-acceptance.md)。
+
 校准最多两个基线会话；正式配置最多四个开发任务、32 次会话。两者保持正常基线和二元任务成功评分，不预设修改一定有效。
 
 ## 认证、隔离和费用

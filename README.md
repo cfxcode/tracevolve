@@ -84,6 +84,8 @@ python3 scripts/audit_resource_runs.py --study .tracevolve/difficulty-recovery-0
 python3 -m tracevolve run --config configs/p1a-recovery.json --study .tracevolve/p1a-recovery-001
 ```
 
+Latest evidence: all six calibration/development runs succeeded with zero agent handling errors. No natural candidate or real improvement has been established; see [recovery acceptance](docs/recovery-acceptance.md) (Chinese).
+
 Calibration is capped at two baseline sessions. The formal configuration allows four development tasks and at most 32 sessions. Both retain the normal baseline and binary task-success score; no improvement is assumed.
 
 ## Authentication, isolation, and costs
