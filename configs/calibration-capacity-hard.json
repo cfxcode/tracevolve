@@ -1,0 +1,9 @@
+{
+  "study_id": "difficulty-capacity-hard-001",
+  "phase": "p0",
+  "task_profile": "capacity-v1",
+  "seed": 1028,
+  "max_development_tasks": 1,
+  "max_sessions": 1,
+  "prior_studies": [".tracevolve/difficulty-capacity-001", ".tracevolve/p0-capacity-smoke-001", ".tracevolve/p1a-capacity-001"]
+}

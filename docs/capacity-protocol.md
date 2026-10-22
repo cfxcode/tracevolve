@@ -50,3 +50,23 @@ P0 retains the frozen A/B/C comparison and v0.2.1 data format: additional resour
 payloads are preserved by ID renaming. Conclusions are limited to this explicitly
 versioned resource profile; do not pool its observations with basic-v1 as though
 they came from a single unchanged task distribution.
+
+## Offline hardness calibration, recorded before the stress execution
+
+The first uniform P0 batch yielded no candidate. To assess whether search
+complexity is a useful difficulty indicator, an offline scan of generator seeds
+0–1999 used the independent solver's deterministic search-state count. This was
+not a model sweep and did not generate or select any Prompt/Skill candidate.
+The largest count was 16,326 states at seed 1028 (next largest: 2,690 at seed 126).
+Removing prerequisite edges on ten offline samples made search easier and was
+not adopted. Both observations concern this reference algorithm, not proven
+model difficulty.
+
+If the uniform P1a batch also yields no candidate, run exactly one independent
+baseline calibration task with seed 1028, using
+`configs/calibration-capacity-hard.json`. The same tool contract, model, Prompt,
+scoring, 64-call and 300-second limits apply. This intentionally selected stress
+case is not a representative random sample. It is calibration-only, excluded
+from subsequent candidate collection. A success is retained as success; a
+failure does not authorize rewriting the original batches or reusing this task
+as a formal candidate source.

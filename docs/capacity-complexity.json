@@ -1,0 +1,80 @@
+{
+  "start": 0,
+  "count": 2000,
+  "highest_search_counts": [
+    {
+      "seed": 1028,
+      "states_searched": 16326,
+      "gateway_calls": 51
+    },
+    {
+      "seed": 126,
+      "states_searched": 2690,
+      "gateway_calls": 53
+    },
+    {
+      "seed": 122,
+      "states_searched": 2566,
+      "gateway_calls": 53
+    },
+    {
+      "seed": 1652,
+      "states_searched": 2444,
+      "gateway_calls": 49
+    },
+    {
+      "seed": 1286,
+      "states_searched": 2407,
+      "gateway_calls": 49
+    },
+    {
+      "seed": 438,
+      "states_searched": 2388,
+      "gateway_calls": 47
+    },
+    {
+      "seed": 1725,
+      "states_searched": 1915,
+      "gateway_calls": 49
+    },
+    {
+      "seed": 241,
+      "states_searched": 1858,
+      "gateway_calls": 53
+    },
+    {
+      "seed": 1672,
+      "states_searched": 1657,
+      "gateway_calls": 53
+    },
+    {
+      "seed": 501,
+      "states_searched": 1261,
+      "gateway_calls": 49
+    }
+  ],
+  "source": {
+    "__init__.py": "b6eb3fb816b32b3827e488ae2500644b481b0ba6537e9c95abf397b5fdf1f7f5",
+    "__main__.py": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
+    "_vendor/contracts.py": "f1fe9465eca15a08c9c3b59a54b5467fb19c043cf5903b26f71e5780f7a0e94d",
+    "_vendor/pilot.py": "dac20a1ff8ab5a3a8159a4e8bad4c3c178acb62b9d7cb6701e97cffde126f5fd",
+    "_vendor/rename_probe.py": "b857e327bd4c97ddcb5b467dc054622cd2a76dc96571ca2d5dada375b1a72426",
+    "auth.py": "74ba9aa3b14a7985fff734c30a9d0398b0b5d5b1c9aa328e0c508b551f7f55ab",
+    "capacity.py": "7dff6f7f0b9913ad7b8d22289bfb61707a15666a8cc313444c673498c6bbeb84",
+    "cli.py": "3d11edba209a6615e552367fc844dcb85f4108f482bff8c0e4155b3f98765f04",
+    "codex.py": "287029c0d9b1d83bd773f5ea0721c0a20174ca89945cb33b206fd5da0879c277",
+    "config.py": "de4e65b4a902722d5a82c3b54c6d3f1957f098cb67e61f283e1cfc2ed93a2262",
+    "contracts.py": "c5c7f1990e8d21ed2e16678fa2e8b75eed74d71c7a8b6ee254ee05c541885394",
+    "legacy.py": "35e8eb660ebbe3a94958792820519bb1792cc698afda4694e1752ddb1a7a5b4f",
+    "memory.py": "754c483cd2bd9772ed7013871304442417d0036518f07a53d20ef11445c23ef0",
+    "recorded_judge.py": "01e2ded6966fab69403a8a4d654aa7d2640dcfb2e406ae05571d6dbf55871e1c",
+    "recovery.py": "25ba111cd87c7302b315f89103b1dbaf47d979eba6bcc27521fa6eb9f502d470",
+    "store.py": "82a19d7763c1f953a9a46585f9fbc57c351cef66ebf8df867abf54236d6a40f0",
+    "study.py": "741424a1e30fa5d6bc579eb0e022fec2d5f081476ad5ac01184d2a3c7b15d794",
+    "task_server.py": "a54ee29d9d5a739c163b938275540e3e805e9eea2f266015c586c47c749fbe5d",
+    "tasks.py": "ba7c14a530cf316be5f41412a7e63685181cfd9d8147f9ead828d9f67615b016",
+    "util.py": "b09be48b32926bcec7c47caad3846afbe891909d7adf1f15ee6d22afac3dd20a"
+  },
+  "solver_sha256": "9f9544c138ada3e1f57db38eab3e10d61c806f486239e4a8ac53283ac832d7c8",
+  "scope": "deterministic reference-search effort; not measured model difficulty"
+}
