@@ -50,6 +50,10 @@ class CodexAdapter:
                 "remote_model_weights": "unknown", "capabilities": self.capabilities()}
 
     def preflight(self, config):
+        if config.task_profile == "code-maintenance-v1":
+            from .code_runner import available
+            if not available():
+                raise ValueError("CODE_SANDBOX_UNAVAILABLE")
         identity = self.runtime_identity()
         if identity["version"] != config.expected_codex_version:
             raise ValueError("Codex version drift: " + identity["version"])
@@ -250,7 +254,6 @@ class CodexAdapter:
                 signal.signal(signal.SIGTERM, previous_sigterm)
         if auth_cleanup_errors:
             outcome["auth_cleanup_errors"] = auth_cleanup_errors
-        outcome["elapsed_seconds"] = time.monotonic() - start
         if (run_dir / "tool_events.jsonl").exists():
             outcome["tool_events"] = [json.loads(s) for s in (run_dir / "tool_events.jsonl").read_text().splitlines()]
         if server_input:
@@ -277,10 +280,21 @@ class CodexAdapter:
             if outcome["status"] == "completed" and not outcome["load_evidence"]["verified"]:
                 outcome.update(status="failed", error="MISSING_ACTUAL_LOAD_EVIDENCE")
             if outcome["status"] == "completed":
-                outcome["evaluation"] = evaluation
+                if server_input["contract"].get("family") == "python-code-maintenance":
+                    from .code_tasks import acceptance
+                    try:
+                        checks = acceptance(server_input["task"], evaluation["artifact"])
+                        success = bool(evaluation.get("submitted")) and checks["passed"] == checks["total"]
+                        evaluation = {**evaluation, "acceptance": checks, "success": success, "utility": float(success)}
+                        write_json(run_dir / "code_acceptance.json", checks)
+                    except (OSError, ValueError, RuntimeError) as exc:
+                        outcome.update(status="failed", error="CODE_EVALUATOR_FAILED: " + str(exc))
+                if outcome["status"] == "completed":
+                    outcome["evaluation"] = evaluation
         # Legacy has only failed/not_run; preserve uncertainty in the original
         # request ledger and the explicit error, never silently issue a retry.
         # Bind exact raw files for later verification; do not rewrite them.
+        outcome["elapsed_seconds"] = time.monotonic() - start
         outcome["raw_files"] = {str(p.relative_to(store.root)): text_hash(p.read_text()) for p in sorted(run_dir.iterdir()) if p.is_file()}
         result = store.finish(logical_id, outcome)
         if interruption is not None:
@@ -291,7 +305,11 @@ class CodexAdapter:
         snapshot = self.snapshot(bundle, contract, config)
         prompt = ("You are executing one isolated resource task. First call resources.load_bundle and follow its installed instructions. "
                   "Use only resources tools. Finish by calling submit with the exact goal set. "
-                  "The current tool schema specifies required modes. IDs are opaque.\nPublic goal IDs: " + canonical(task["content"]["goals"]))
+                  "The current tool schema specifies required modes. IDs are opaque.\nPublic goal IDs: " + canonical(task["content"].get("goals", [])))
+        if contract.get("family") == "python-code-maintenance":
+            prompt = ("Complete one isolated Python maintenance task. First call resources.load_bundle, then list_files "
+                      "to read the issue and public examples. Use only resources tools to inspect/edit files and run tests. "
+                      "Finish with submit. Independent host acceptance checks all documented behavior after execution ends.")
         result = self._invoke(store=store, logical_id=logical_id, prompt=prompt, schema=None, config=config, phase=phase,
                               server_input={"bundle": asdict(bundle), "task": task["content"], "contract": contract,
                                             "max_tool_calls": config.max_tool_calls})

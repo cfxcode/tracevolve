@@ -8,6 +8,9 @@ from .util import digest
 
 
 def tool_contract(version="resource-v1"):
+    if version.startswith("code-maintenance-"):
+        from .code_tasks import contract
+        return contract(version)
     if version not in ("resource-v1", "resource-v2", "resource-recovery-v1", "resource-recovery-v2", "resource-capacity-v1", "resource-capacity-v2", "resource-allocation-v1", "resource-allocation-v2"):
         raise ValueError("unknown tool contract")
     contract = {"version": version, "explicit_dependencies": True,
@@ -28,6 +31,9 @@ def tool_contract(version="resource-v1"):
 
 
 def create_environment(task, contract, max_calls=64):
+    if task.get("domain") == "python-code-maintenance" or contract.get("family") == "python-code-maintenance":
+        from .code_tasks import CodeEnvironment
+        return CodeEnvironment(task, contract, max_calls)
     if contract.get("pool_assignment"):
         from .allocation import AllocationEnvironment
         return AllocationEnvironment(task, contract, max_calls)
@@ -175,6 +181,9 @@ def semantic_identity(task, include_payload=True):
 
 
 def generate(seed, source_id, split, profile="basic-v1"):
+    if profile == "code-maintenance-v1":
+        from .code_tasks import generate as generate_code
+        return generate_code(seed, source_id, split)
     if profile in ("allocation-v1", "allocation-precision-v1"):
         from .allocation import generate_allocation
         return generate_allocation(seed, source_id, split, precision=10 if profile == "allocation-precision-v1" else 1)
@@ -219,6 +228,9 @@ def generate(seed, source_id, split, profile="basic-v1"):
 
 
 def plan_tasks(seed, development, units, heldout, forbidden_templates=(), profile="basic-v1"):
+    if profile == "code-maintenance-v1":
+        from .code_tasks import plan
+        return plan(seed, development, units, heldout, forbidden_templates)
     seen = set(forbidden_templates)
     result = {"development": [], "validation": [], "sealed_evaluation": []}
     index = 0
@@ -234,6 +246,9 @@ def plan_tasks(seed, development, units, heldout, forbidden_templates=(), profil
 
 
 def rename(task, seed):
+    if task["content"].get("domain") == "python-code-maintenance":
+        from .code_tasks import rename as rename_code
+        return rename_code(task, seed)
     rng = random.Random(seed)
     old = {j["id"] for j in task["content"]["jobs"]}
     new = set()

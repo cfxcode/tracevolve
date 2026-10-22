@@ -24,6 +24,22 @@ JUDGE_SCHEMA = {"type": "object", "additionalProperties": False,
 DECISION = {"delta": .05, "indifference": .01, "alpha": .05, "min_heldout_pairs": 3, "utility_bounds": [0, 1]}
 
 
+def judgment_settings(data, *, synthetic=False):
+    if data.get("task_protocol") != "code-maintenance-v1":
+        return pilot.validate_data(data, demo=synthetic)
+    from .code_protocol import validate_evidence
+    validate_evidence(data, synthetic=synthetic)
+    return {**data["decision"], "task_protocol": "code-maintenance-v1"}
+
+
+def judgment_request(unit, events, settings):
+    request = pilot.judge_request(unit, events, settings)
+    if settings.get("task_protocol") == "code-maintenance-v1":
+        request["protocol_version"] = "code-maintenance-v1"
+        request["instructions"] += " This is code maintenance; the diagnostic renames internal Python modules consistently. It is not the resource-job v0.2.1 protocol."
+    return request
+
+
 def projection(run):
     """One public trace, not repeated full prompts or private evaluator state."""
     result = {"run_id": "run-" + digest(run["run_id"])[:24], "status": run["status"],
@@ -43,8 +59,9 @@ def public_trace(run):
 class Study:
     def __init__(self, store, adapter, config):
         self.store, self.adapter, self.config = store, adapter, config
-        self.base = Bundle()
-        self.contract = tool_contract({"recovery-v1": "resource-recovery-v1", "capacity-v1": "resource-capacity-v1", "allocation-v1": "resource-allocation-v1", "allocation-precision-v1": "resource-allocation-v1"}.get(config.task_profile, "resource-v1"))
+        from .code_tasks import BASE_PROMPT as CODE_PROMPT
+        self.base = Bundle(prompt=CODE_PROMPT) if config.task_profile == "code-maintenance-v1" else Bundle()
+        self.contract = tool_contract({"code-maintenance-v1": "code-maintenance-v1", "recovery-v1": "resource-recovery-v1", "capacity-v1": "resource-capacity-v1", "allocation-v1": "resource-allocation-v1", "allocation-precision-v1": "resource-allocation-v1"}.get(config.task_profile, "resource-v1"))
 
     def freeze(self):
         s, c = self.store, self.config
@@ -56,6 +73,7 @@ class Study:
             if digest(frozen["identity"]) != digest(identity):
                 raise ValueError("FROZEN_STUDY_DRIFT: use a new study after code, runtime or config changes")
             self._materialize_manifest(frozen)
+            self._certify_code(frozen)
             return frozen
         self.adapter.preflight(c)
         code_root = Path(__file__).parent
@@ -89,8 +107,29 @@ class Study:
                   "phase": c.phase}
         s.set("frozen", s.put(frozen))
         self._materialize_manifest(frozen)
+        self._certify_code(frozen)
         s.set("phase", "FROZEN")
         return frozen
+
+    def _certify_code(self, frozen):
+        if self.config.task_profile != "code-maintenance-v1" or getattr(self.adapter, "synthetic", False):
+            return
+        from .code_tasks import certify
+        ref = self.store.state("reference_certificate")
+        if ref:
+            certificate = self.store.get(ref)
+            if certificate["frozen_sha256"] != digest(frozen):
+                raise ValueError("code reference certificate mismatch")
+        else:
+            if self.store.calls():
+                raise ValueError("code reference certificate must precede inference")
+            certificate = certify(frozen, self.config.max_tool_calls)
+            self.store.set("reference_certificate", self.store.put(certificate))
+        path = self.store.root / "reference.json"
+        if path.exists() and digest(read_json(path)) != digest(certificate):
+            raise ValueError("code reference file mismatch")
+        if not path.exists():
+            write_json(path, certificate)
 
     def _materialize_manifest(self, frozen):
         path = self.store.root / "manifest.json"
@@ -129,7 +168,7 @@ class Study:
                         "observed_result": run["evaluation"], "trace": public_trace(run), "scope": "development"}
                 row["case_ref"] = s.put(case)
                 prompt = ("Propose one minimal reusable " + component + " improvement from this observed development failure. "
-                          "Do not edit tools, runtime, goals, evaluation or budget. Do not specialize to resource IDs. "
+                          "Do not edit tools, runtime, goals, evaluation or budget. Do not specialize to task-specific identifiers or examples. "
                           "If evidence does not support a concrete modification, return eligible=false. "
                           "For prompt changes return the complete replacement planning prompt. For Skill changes return a "
                           "standalone Skill with trigger conditions, procedure, incompatible conditions and tool dependencies. "
@@ -146,7 +185,7 @@ class Study:
                         raise ValueError("invalid proposal eligibility")
                     if not response["eligible"]:
                         raise ValueError("proposer declined: " + response.get("rationale", ""))
-                    candidate = Bundle(prompt=response["content"]) if component == "prompt" else Bundle(skill=response["content"])
+                    candidate = Bundle(prompt=response["content"], skill=self.base.skill) if component == "prompt" else Bundle(prompt=self.base.prompt, skill=response["content"])
                     patch = Patch(self.base.hash, candidate, component, response["hypothesis"], (run["run_id"],))
                     patch.validate(self.base)
                     if any(p["candidate"] == asdict(candidate) for p in candidates):
@@ -218,7 +257,7 @@ class Study:
         return units
 
     def data(self, units):
-        return {"schema_version": 2, "additional_budget_usd": None, "decision": DECISION,
+        return {"schema_version": 2, **({"task_protocol": "code-maintenance-v1"} if self.config.task_profile == "code-maintenance-v1" else {}), "additional_budget_usd": None, "decision": DECISION,
                 "shared_overheads": {"candidate_generation_usd": None, "calibration_usd": None}, "units": units}
 
     def judge(self, units):
@@ -229,12 +268,12 @@ class Study:
             return bank
         s.set("phase", "JUDGING")
         data = self.data(units)
-        settings = pilot.validate_data(data, demo=getattr(self.adapter, "synthetic", False))
+        settings = judgment_settings(data, synthetic=getattr(self.adapter, "synthetic", False))
         bank = {}
         for unit in units:
             for group in ("A", "B", "C"):
                 events = unit["initial_evidence"] + ([] if group == "A" else unit["extra_" + group])
-                request = pilot.judge_request(unit, events, settings)
+                request = judgment_request(unit, events, settings)
                 logical_id = unit["unit_id"] + ":judge:" + group
                 saved = next((c for c in s.calls() if c["id"] == logical_id and c["status"] == "failed"), None)
                 response = s.get(saved["result_hash"]) if saved else self.adapter.infer(store=s, logical_id=logical_id,
@@ -328,7 +367,7 @@ class Study:
                         return self.report()
                 self.heldout(frozen, units, candidates, bank)
                 self.store.set("phase", "EXPORT_READY")
-                if self.config.phase == "p0":
+                if self.config.phase == "p0" and self.config.task_profile != "code-maintenance-v1":
                     self.export()
                 if self.config.phase == "p1a":
                     from .memory import run_followup
@@ -341,6 +380,8 @@ class Study:
         return self.report()
 
     def export(self):
+        if self.config.task_profile == "code-maintenance-v1":
+            raise ValueError("code-maintenance uses its separate protocol, not resource v0.2.1 export")
         units = self.store.state("units", [])
         if not units:
             raise ValueError("no candidate: report only; no fabricated v2 unit")

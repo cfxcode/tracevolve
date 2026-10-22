@@ -18,6 +18,12 @@ def replay_run(request, result):
         return {"checked": False, "reason": "not a completed resource execution"}
     if request["implementation"]["tasks.py"] != text_hash(Path(tasks.__file__).read_text()):
         raise ValueError("environment source differs: use the archived source version to audit")
+    code = spec["contract"].get("family") == "python-code-maintenance"
+    if code:
+        from tracevolve import code_tasks, code_runner, code_corpus
+        for module in (code_tasks, code_runner, code_corpus):
+            if request["implementation"].get(Path(module.__file__).name) != text_hash(Path(module.__file__).read_text()):
+                raise ValueError("code evaluator source differs: use archived source")
     if spec["contract"].get("check_receipt_required"):
         from tracevolve import recovery
         if request["implementation"].get("recovery.py") != text_hash(Path(recovery.__file__).read_text()):
@@ -39,6 +45,10 @@ def replay_run(request, result):
     if not env.loaded:
         raise ValueError("completed resource run has no loading receipt")
     expected = env.evaluate()
+    if code:
+        acceptance = code_tasks.acceptance(spec["task"], expected["artifact"])
+        success = expected["submitted"] and acceptance["passed"] == acceptance["total"]
+        expected.update(acceptance=acceptance, success=success, utility=float(success))
     observed = {key: result["evaluation"][key] for key in expected}
     if canonical(expected) != canonical(observed):
         raise ValueError("reported final outcome differs from replayed resource state")

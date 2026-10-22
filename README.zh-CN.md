@@ -8,6 +8,8 @@ TraceVolve 保存原始执行事实，冻结候选，再用独立会话验证。
 
 实现支持与真实验收分别记录。[最新校准记录](docs/calibration-status.md)包含本轮 43 次真实成功执行、零 Agent 错误、零自然候选；真实优化闭环仍未验收。[原始验收快照](docs/acceptance.md)继续保留。
 
+新增受控 Python 代码维护任务域，目前真实代码执行需要 macOS。任务源码产物与 Prompt／文本 Skill 候选分开保存。[代码实验协议](docs/code-maintenance-protocol.md)规定了不可修改的公开测试、宿主独立验收和模块重命名验证；这类实验不冒充资源任务的 v0.2.1 导出。
+
 ## 安装与预检
 
 需要 Python 3.11+、已登录 ChatGPT 的 Codex CLI。执行器使用 POSIX 进程组（macOS/Linux）。当前适配并固定 `codex-cli 0.163.0`、`gpt-6-astra`、推理强度 `high`。生产代码使用 Python 标准库。

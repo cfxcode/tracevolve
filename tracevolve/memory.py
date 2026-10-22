@@ -46,7 +46,7 @@ def prepare_release(store, candidate, unit, bank, contract):
     else:
         status, reason = "deferred", "maintainer_confirmation_required"
     permit = {"id": "permit-" + candidate["id"], "status": "pending_validation",
-              "bundle_hash": Bundle(**candidate["candidate"]).hash, "task_family": "resource-dependency-tasks",
+              "bundle_hash": Bundle(**candidate["candidate"]).hash, "task_family": contract["family"],
               "dependencies": dict(contract),
               "supporting_evidence": [store.put(e) for e in evidence], "counterexamples": [],
               "candidate": candidate["id"], "at": now()}
@@ -69,9 +69,18 @@ class Registry:
     def __init__(self, store):
         self.store = store
 
-    def pointer(self, scope="resource-dependency-tasks"):
+    def baseline(self):
+        ref = self.store.state("frozen")
+        return Bundle(**self.store.get(ref)["baseline"]) if ref else Bundle()
+
+    def scope(self):
+        ref = self.store.state("frozen")
+        return self.store.get(ref)["contract"]["family"] if ref else "resource-dependency-tasks"
+
+    def pointer(self, scope=None):
+        scope = scope or self.scope()
         row = self.store.db.execute("SELECT * FROM pointers WHERE scope=?", (scope,)).fetchone()
-        return dict(row) if row else {"scope": scope, "bundle": Bundle().hash, "generation": 0}
+        return dict(row) if row else {"scope": scope, "bundle": self.baseline().hash, "generation": 0}
 
     def publish(self, candidate, *, expected_generation, maintainer):
         s = self.store
@@ -124,7 +133,7 @@ class Registry:
 
     def _verify_candidate(self, candidate):
         """Bind the release to its frozen candidate, judgment and executed pairs."""
-        from .study import DECISION, projection, public_trace
+        from .study import DECISION, projection, public_trace, judgment_settings, judgment_request
         from .util import canonical
         from .legacy import pilot
         s = self.store
@@ -153,8 +162,10 @@ class Registry:
         data = {"schema_version": 2, "additional_budget_usd": None,
                 "decision": DECISION,
                 "shared_overheads": {"candidate_generation_usd": None, "calibration_usd": None}, "units": [unit]}
-        settings = pilot.validate_data(data, demo=bool(judgment.get("synthetic")))
-        expected_request = pilot.judge_request(unit, unit["initial_evidence"], settings)
+        if self.scope() == "python-code-maintenance":
+            data["task_protocol"] = "code-maintenance-v1"
+        settings = judgment_settings(data, synthetic=bool(judgment.get("synthetic")))
+        expected_request = judgment_request(unit, unit["initial_evidence"], settings)
         if entry["request"] != expected_request or pilot.digest(entry["request"]) not in bank:
             raise ValueError("sealed judgment request mismatch")
         judge_input = s.get(judgment_call["request_hash"])
@@ -181,7 +192,7 @@ class Registry:
                         or run["task_sha256"] != evidence["task"]["sha256"]):
                     raise ValueError("release evidence differs from executed pair")
                 snapshot = run["execution_snapshot"]
-                expected_bundle = bundle if side == "candidate" else Bundle()
+                expected_bundle = bundle if side == "candidate" else self.baseline()
                 from .contracts import ExecutionSnapshot, frozen_harness
                 if (run["snapshot_hash"] != ExecutionSnapshot(**snapshot).hash
                         or run["harness"] != frozen_harness(expected_bundle, ExecutionSnapshot(**snapshot))):
@@ -204,15 +215,15 @@ class Registry:
             current = self.pointer()
             if current["generation"] != expected_generation:
                 raise ValueError("stale rollback generation")
-            if current["bundle"] == Bundle().hash:
+            if current["bundle"] == self.baseline().hash:
                 raise ValueError("no published candidate to roll back")
-            s.db.execute("UPDATE pointers SET bundle=?, generation=generation+1 WHERE scope=?", (Bundle().hash, current["scope"]))
+            s.db.execute("UPDATE pointers SET bundle=?, generation=generation+1 WHERE scope=?", (self.baseline().hash, current["scope"]))
             permit = s.state("permit")
             if permit:
                 from .util import canonical
                 permit = {**permit, "status": "suspended", "reason": "rollback"}
                 s.db.execute("UPDATE state SET value=? WHERE key='permit'", (canonical(permit),))
-            s.event("rollback", {"from": current, "to": Bundle().hash, "reason": reason})
+            s.event("rollback", {"from": current, "to": self.baseline().hash, "reason": reason})
             s.db.commit()
         except BaseException:
             s.db.rollback()
@@ -237,10 +248,10 @@ def contract_changed(store, contract):
 def selected_bundle(store, candidate, contract):
     permit = store.state("permit", {})
     proposed = Bundle(**candidate["candidate"])
-    check = applicability(permit, task_family="resource-dependency-tasks", contract=contract, bundle_hash=proposed.hash)
+    check = applicability(permit, task_family=contract["family"], contract=contract, bundle_hash=proposed.hash)
     pointer = Registry(store).pointer()
     enabled = check["result"] == "applicable" and pointer["bundle"] == proposed.hash
-    return proposed if enabled else Bundle(), {"applicability": check, "pointer": pointer, "skill_enabled": enabled}
+    return proposed if enabled else Registry(store).baseline(), {"applicability": check, "pointer": pointer, "skill_enabled": enabled}
 
 
 def run_followup(study, frozen, candidate):
@@ -250,7 +261,7 @@ def run_followup(study, frozen, candidate):
     # Additional tasks were frozen by seed/rule before any sealed results.
     snapshot = s.state("followup_snapshot")
     if snapshot is None:
-        task = generate(c.seed + 30000, f"followup-{c.seed}", "post_release", c.task_profile)
+        task = frozen["tasks"]["followup"][0] if c.task_profile == "code-maintenance-v1" else generate(c.seed + 30000, f"followup-{c.seed}", "post_release", c.task_profile)
         bundle, selection = selected_bundle(s, candidate, study.contract)
         snapshot = {"task": task, "bundle": asdict(bundle), "selection": selection}
         s.set("followup_snapshot", snapshot)
@@ -263,7 +274,7 @@ def run_followup(study, frozen, candidate):
     # Explicit experiment authorization permits testing the candidate without
     # making it available to ordinary post-release execution.
     result = study._run("p1a-revalidation-candidate", Bundle(**candidate["candidate"]), task, "revalidation", changed)
-    base = study._run("p1a-revalidation-baseline", Bundle(), task, "revalidation", changed)
+    base = study._run("p1a-revalidation-baseline", study.base, task, "revalidation", changed)
     permit = s.state("permit")
     complete = result["status"] == base["status"] == "completed"
     regression = complete and result["evaluation"]["utility"] < base["evaluation"]["utility"]

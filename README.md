@@ -8,6 +8,8 @@ TraceVolve preserves raw execution evidence, freezes candidates, and validates t
 
 Implementation support and live acceptance are tracked separately. The [latest calibration record](docs/calibration-status.md) reports 43 successful live executions, zero agent errors, and zero natural candidates: the real optimization loop remains unaccepted. The [original acceptance record](docs/acceptance.md) is preserved.
 
+The second task domain now supports controlled Python code maintenance on macOS. Task source changes are saved separately from textual Prompt/Skill candidates. The [code experiment protocol](docs/code-maintenance-protocol.md) defines immutable public tests, host-only acceptance, and module-renaming validation; these runs do not use the resource v0.2.1 export.
+
 ## Installation and preflight
 
 Requires Python 3.11+ and Codex CLI authenticated through ChatGPT. The executor uses POSIX process groups (macOS/Linux). The current integration pins `codex-cli 0.163.0`, `gpt-6-astra`, and reasoning effort `high`. Production code uses the Python standard library.

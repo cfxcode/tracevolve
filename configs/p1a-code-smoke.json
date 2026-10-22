@@ -1,0 +1,12 @@
+{
+  "study_id": "p1a-code-smoke-001",
+  "phase": "p1a",
+  "task_profile": "code-maintenance-v1",
+  "seed": 2004503,
+  "target_modifications": 1,
+  "heldout_tasks_per_modification": 3,
+  "max_development_tasks": 6,
+  "max_sessions": 32,
+  "timeout_seconds": 300,
+  "max_tool_calls": 64
+}

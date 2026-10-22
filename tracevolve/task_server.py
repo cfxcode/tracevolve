@@ -19,6 +19,9 @@ def schema(properties):
 
 
 def tool_specs(contract):
+    if contract.get("family") == "python-code-maintenance":
+        from .code_tasks import tool_specs as code_specs
+        return code_specs(contract)
     string = {"type": "string"}
     specs = [
         {"name": "load_bundle", "description": "Read the installed planning instructions and optional Skill. Required before any job tool; records the actual content hash.", "inputSchema": schema({})},

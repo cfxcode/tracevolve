@@ -31,7 +31,7 @@ class Config:
         for name in ["target_modifications", "heldout_tasks_per_modification", "max_development_tasks", "max_sessions", "timeout_seconds", "max_tool_calls", "seed"]:
             if type(getattr(self, name)) is not int or getattr(self, name) < 1:
                 raise ValueError(name + " must be a positive integer")
-        if self.task_profile not in ("basic-v1", "planning-v2", "recovery-v1", "capacity-v1", "allocation-v1", "allocation-precision-v1"):
+        if self.task_profile not in ("basic-v1", "planning-v2", "recovery-v1", "capacity-v1", "allocation-v1", "allocation-precision-v1", "code-maintenance-v1"):
             raise ValueError("unknown task profile")
         if self.task_profile == "planning-v2" and self.max_tool_calls < 60:
             raise ValueError("planning-v2 requires at least 60 gateway calls for guaranteed solvability")
