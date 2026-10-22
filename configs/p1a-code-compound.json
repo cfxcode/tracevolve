@@ -1,0 +1,1 @@
+{"heldout_tasks_per_modification":3,"max_development_tasks":1,"max_sessions":24,"max_tool_calls":64,"phase":"p1a","prior_studies":[".tracevolve/p1a-code-smoke-001"],"seed":2104510,"study_id":"p1a-code-compound-001","target_modifications":1,"task_profile":"code-maintenance-v1","timeout_seconds":300}

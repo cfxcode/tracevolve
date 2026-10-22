@@ -20,8 +20,8 @@ def replay_run(request, result):
         raise ValueError("environment source differs: use the archived source version to audit")
     code = spec["contract"].get("family") == "python-code-maintenance"
     if code:
-        from tracevolve import code_tasks, code_runner, code_corpus
-        for module in (code_tasks, code_runner, code_corpus):
+        from tracevolve import code_tasks, code_runner, code_corpus, code_deep
+        for module in (code_tasks, code_runner, code_corpus, code_deep):
             if request["implementation"].get(Path(module.__file__).name) != text_hash(Path(module.__file__).read_text()):
                 raise ValueError("code evaluator source differs: use archived source")
     if spec["contract"].get("check_receipt_required"):

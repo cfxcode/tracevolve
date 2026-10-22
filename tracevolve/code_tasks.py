@@ -152,18 +152,20 @@ def acceptance(task,artifact):
     if f['key']=='api_migration':
         mapping=task.get('module_mapping',{})
         core=mapping.get('core','core'); consumer=mapping.get('consumer','consumer'); legacy=mapping.get('legacy','legacy')
-        probe='''import inspect
-from CORE import lookup
-import CONSUMER, LEGACY
+        probe='''import inspect, importlib, json
+import CORE
+
+lookup = CORE.lookup
 
 def handle(data):
     parameters=inspect.signature(lookup).parameters
     if parameters['key'].kind!=inspect.Parameter.KEYWORD_ONLY: return False
-    if lookup({'a':None},key='a')!={'found':True,'value':None}: return False
-    if lookup({},key='x',default=7)!={'found':False,'value':7}: return False
-    CONSUMER.lookup=lambda *a,**k: {'found':False,'value':987}
-    LEGACY.lookup=lambda *a,**k: {'found':False,'value':987}
-    return CONSUMER.get_value({'records':{'a':1},'key':'a'})==987 and LEGACY.contains({'records':{'a':1},'key':'a'}) is False
+    if json.dumps(lookup({'a':None},key='a'),sort_keys=True)!=json.dumps({'found':True,'value':None},sort_keys=True): return False
+    if json.dumps(lookup({},key='x',default=7),sort_keys=True)!=json.dumps({'found':False,'value':7},sort_keys=True): return False
+    CORE.lookup=lambda *a,**k: {'found':False,'value':987}
+    consumer = importlib.import_module('CONSUMER')
+    legacy = importlib.import_module('LEGACY')
+    return consumer.get_value({'records':{'a':1},'key':'a'})==987 and legacy.contains({'records':{'a':1},'key':'a'}) is False
 '''.replace('CORE',core).replace('CONSUMER',consumer).replace('LEGACY',legacy)
         extra=check({**artifact,'acceptance_probe.py':probe},'acceptance_probe',[{'input':None,'expected':True}])
         result['passed']+=extra['passed']; result['total']+=extra['total']; result['api_contract_check']=extra['passed']==extra['total']

@@ -22,6 +22,16 @@ from test_core import SyntheticAdapter
 
 
 class CodeContractTests(unittest.TestCase):
+    def test_compound_oracle_boundary_examples(self):
+        cases=fixture(12)['acceptance']
+        def expected(document,operations):
+            return next(c['expected'] for c in cases if c['input']=={'document':document,'operations':operations})
+        self.assertEqual(expected({'a':False},[{'op':'test','path':'/a','value':0}]),
+                         {'ok':False,'document':{'a':False},'failed_index':0})
+        self.assertEqual(expected({'a':[0,1,2,3]},[{'op':'move','from':'/a/1','path':'/a/3'}])['document'],{'a':[0,2,3,1]})
+        self.assertEqual(expected({'a':{'n':[1]}},[{'op':'copy','from':'/a','path':'/b'},{'op':'add','path':'/b/n/-','value':2}])['document'],{'a':{'n':[1]},'b':{'n':[1,2]}})
+        self.assertEqual(expected({'a':[1]},[{'op':'add','path':'/a/-','value':2},{'op':'remove','path':'/missing'}]),{'ok':False,'document':{'a':[1]},'failed_index':1})
+
     def test_distinct_splits_and_finite_exhaustion(self):
         tasks=plan(0,6,1,3)
         ids=[t['template_id'] for rows in tasks.values() for t in rows]
@@ -97,6 +107,19 @@ class CodeExecutionTests(unittest.TestCase):
                 write_json(store.root/'reference.json',{})
                 with self.assertRaisesRegex(ValueError,'reference file mismatch'): study.freeze()
             finally: store.close()
+
+    def test_api_contract_accepts_import_aliases_and_module_imports(self):
+        task=generate(11,'api','development')['content']
+        reference=fixture(11)['reference_files']
+        for style in ('alias','module'):
+            files=dict(reference)
+            for name in ('consumer.py','legacy.py'):
+                if style=='alias':
+                    files[name]=files[name].replace('from core import lookup','from core import lookup as find').replace('return lookup(', 'return find(')
+                else:
+                    files[name]=files[name].replace('from core import lookup','import core').replace('return lookup(', 'return core.lookup(')
+            result=acceptance(task,files)
+            self.assertEqual(result['passed'],result['total'],style)
 
     def test_all_reference_repairs_and_renames(self):
         for i,row in enumerate(ISSUES):

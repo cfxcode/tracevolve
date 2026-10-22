@@ -72,8 +72,9 @@ def execute(files, entrypoint, inputs):
             except subprocess.TimeoutExpired:
                 timeout=True
             finally:
-                try: os.killpg(proc.pid,signal.SIGKILL)
-                except ProcessLookupError: pass
+                if proc.poll() is None:
+                    try: os.killpg(proc.pid,signal.SIGKILL)
+                    except ProcessLookupError: pass
                 proc.wait()
             out.seek(0); raw=out.read(1048577)
             # Never expose arbitrary stderr: it may contain nondeterministic paths

@@ -72,6 +72,10 @@ ISSUES = [
 ]
 
 
+from .code_deep import DEEP_ISSUES
+ISSUES += DEEP_ISSUES
+
+
 def function(body, name='solve', parameter='data'):
     return 'def '+name+'('+parameter+'):\n'+''.join('    '+line+'\n' for line in body.splitlines())
 

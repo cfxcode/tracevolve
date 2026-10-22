@@ -28,6 +28,9 @@ def summarize(root):
             for key in ('success','utility','tool_calls','tool_errors','agent_errors','environment_faults','task_origin'):
                 if key in evaluation:
                     row[key] = evaluation[key]
+            for key in ('acceptance','artifact_sha256'):
+                if key in evaluation:
+                    row[key] = evaluation[key]
             if result.get('load_evidence'):
                 row['load_verified'] = result['load_evidence']['verified']
             if result:
