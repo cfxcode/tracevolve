@@ -1,0 +1,13 @@
+{
+  "study_id": "difficulty-allocation-precision-001",
+  "phase": "p0",
+  "task_profile": "allocation-precision-v1",
+  "seed": 1604501,
+  "max_development_tasks": 2,
+  "max_sessions": 2,
+  "prior_studies": [
+    ".tracevolve/difficulty-allocation-001",
+    ".tracevolve/p0-allocation-smoke-001",
+    ".tracevolve/p1a-allocation-001"
+  ]
+}

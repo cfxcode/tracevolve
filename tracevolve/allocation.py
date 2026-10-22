@@ -61,14 +61,14 @@ class AllocationEnvironment(ResourceEnvironment):
                 'task_origin':'procedural_allocation_scenario'}
 
 
-def generate_allocation(seed, source_id, split):
+def generate_allocation(seed, source_id, split, precision=1):
     rng = random.Random(seed)
     weights = []
     for _ in range(5):
         while True:
-            group = [rng.randint(10, 30) for _ in range(4)]
-            remaining = 100 - sum(group)
-            if 10 <= remaining <= 30:
+            group = [rng.randint(10 * precision, 30 * precision) for _ in range(4)]
+            remaining = 100 * precision - sum(group)
+            if 10 * precision <= remaining <= 30 * precision:
                 weights.extend(group + [remaining])
                 break
     rng.shuffle(weights)
@@ -87,7 +87,7 @@ def generate_allocation(seed, source_id, split):
     jobs.append({'id':ids[-1], 'requires':ids[:-1],
                  'payload':{'kind':'publish','requires_check':True,'units':0}})
     rng.shuffle(jobs)
-    task = {'id':source_id, 'jobs':jobs, 'goals':[ids[-1]], 'pools':{f'pool-{i}':100 for i in range(5)}}
+    task = {'id':source_id, 'jobs':jobs, 'goals':[ids[-1]], 'pools':{f'pool-{i}':100 * precision for i in range(5)}}
     validate(task)
     return envelope(task, source_id, split=split, seed=seed,
                     template_id=semantic_identity(task, False), semantic_hash=semantic_identity(task))

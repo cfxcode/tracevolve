@@ -1,0 +1,14 @@
+{
+  "study_id": "p0-allocation-precision-smoke-001",
+  "phase": "p0",
+  "task_profile": "allocation-precision-v1",
+  "seed": 1704501,
+  "max_development_tasks": 6,
+  "max_sessions": 32,
+  "prior_studies": [
+    ".tracevolve/difficulty-allocation-001",
+    ".tracevolve/p0-allocation-smoke-001",
+    ".tracevolve/p1a-allocation-001",
+    ".tracevolve/difficulty-allocation-precision-001"
+  ]
+}

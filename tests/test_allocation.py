@@ -56,6 +56,30 @@ class AllocationTests(unittest.TestCase):
                     self.assertEqual(env.errors,0)
                     self.assertEqual(sum(env.available.values()),0)
 
+    def test_precision_profile_reference_and_modes(self):
+        for seed in range(50):
+            for version in ('resource-allocation-v1','resource-allocation-v2'):
+                task=generate(seed,str(seed),'test','allocation-precision-v1')
+                self.assertEqual(set(task['content']['pools'].values()), {1000})
+                self.assertTrue(any(j['payload']['units'] % 10 for j in task['content']['jobs']))
+                env=create_environment(task['content'],tool_contract(version))
+                execute_reference(env)
+                self.assertTrue(env.evaluate()['success'])
+                self.assertEqual(env.calls,55)
+                self.assertEqual(sum(env.available.values()),0)
+
+    def test_exact_cover_rejects_unsolvable_packing(self):
+        task=self.fixture()
+        for job,units in zip(task['jobs'],[6,6,6,2,0]):job['payload']['units']=units
+        self.assertIsNone(solve(task)['assignments'])
+
+    def test_reference_supports_unequal_pools_with_slack(self):
+        task=self.fixture();task['pools']={'a':11,'b':12}
+        env=create_environment(task,tool_contract('resource-allocation-v1'))
+        execute_reference(env)
+        self.assertTrue(env.evaluate()['success'])
+        self.assertEqual(sum(env.available.values()),3)
+
     def test_locally_valid_allocation_can_strand_remaining_jobs(self):
         env=create_environment(self.fixture(),tool_contract('resource-allocation-v1'))
         for job,pool in [('1','a'),('2','a')]:

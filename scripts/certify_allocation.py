@@ -18,7 +18,7 @@ def main():
     parser.add_argument('--study', required=True)
     args = parser.parse_args()
     config = Config.load(args.config)
-    if config.task_profile != 'allocation-v1':
+    if config.task_profile not in ('allocation-v1', 'allocation-precision-v1'):
         raise ValueError('allocation profile required')
     store = Store(args.study)
     try:

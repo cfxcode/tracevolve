@@ -175,9 +175,9 @@ def semantic_identity(task, include_payload=True):
 
 
 def generate(seed, source_id, split, profile="basic-v1"):
-    if profile == "allocation-v1":
+    if profile in ("allocation-v1", "allocation-precision-v1"):
         from .allocation import generate_allocation
-        return generate_allocation(seed, source_id, split)
+        return generate_allocation(seed, source_id, split, precision=10 if profile == "allocation-precision-v1" else 1)
     if profile == "capacity-v1":
         from .capacity import generate_capacity
         return generate_capacity(seed, source_id, split)
